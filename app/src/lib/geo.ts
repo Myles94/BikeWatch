@@ -25,6 +25,17 @@ export interface Hotspot {
   count: number;
 }
 
+export type RiskTier = 'High' | 'Medium' | 'Low';
+
+export interface ZoneStat extends Hotspot {
+  theftCount: number;
+  avg: number;
+  tier: RiskTier;
+}
+
+const tierFor = (avg: number): RiskTier =>
+  avg >= 0.7 ? 'High' : avg >= 0.45 ? 'Medium' : 'Low';
+
 /** Group incidents into hotspots by neighborhood, weighted by recency + riskWeight. */
 export function computeHotspots(incidents: Incident[]): Hotspot[] {
   const groups = new Map<string, Incident[]>();
@@ -42,6 +53,28 @@ export function computeHotspots(incidents: Incident[]): Hotspot[] {
     hotspots.push({ lat, lng, label, score, count: arr.length });
   });
   return hotspots.sort((a, b) => b.score - a.score);
+}
+
+/** Per-zone analytics for the heatmap overlay: counts, theft share, risk tier. */
+export function computeZoneStats(incidents: Incident[], minCount = 2): ZoneStat[] {
+  const groups = new Map<string, Incident[]>();
+  for (const inc of incidents) {
+    const key = inc.neighborhood ?? 'Other';
+    const arr = groups.get(key) ?? [];
+    arr.push(inc);
+    groups.set(key, arr);
+  }
+  const zones: ZoneStat[] = [];
+  groups.forEach((arr, label) => {
+    if (arr.length < minCount) return;
+    const lat = arr.reduce((s, i) => s + i.lat, 0) / arr.length;
+    const lng = arr.reduce((s, i) => s + i.lng, 0) / arr.length;
+    const score = arr.reduce((s, i) => s + i.riskWeight, 0);
+    const avg = score / arr.length;
+    const theftCount = arr.filter((i) => i.type === 'theft').length;
+    zones.push({ lat, lng, label, score, count: arr.length, theftCount, avg, tier: tierFor(avg) });
+  });
+  return zones.sort((a, b) => b.score - a.score);
 }
 
 export function nearestSafeZone(

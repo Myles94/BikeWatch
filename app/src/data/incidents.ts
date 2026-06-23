@@ -9,6 +9,14 @@ export const CITY = {
 
 const hoursAgo = (h: number) => new Date(Date.now() - h * 3600_000).toISOString();
 
+const BIKE_IMAGES = ['/reports/bike-1.jpg', '/reports/bike-2.jpg', '/reports/bike-3.jpg'];
+const SCOOTER_IMAGE = '/reports/scooter-1.jpg';
+
+export const pickImage = (title: string, idx: number): string => {
+  if (/scooter|e-?bike|battery/i.test(title)) return SCOOTER_IMAGE;
+  return BIKE_IMAGES[idx % BIKE_IMAGES.length];
+};
+
 // Helper to jitter points around a cluster center
 const cluster = (
   baseId: string,
@@ -37,8 +45,7 @@ const cluster = (
     neighborhood,
   }));
 
-export const SEED_INCIDENTS: Incident[] = [
-  // ---- Georgia Tech / Home Park (HIGH risk hotspot) ----
+const RAW_INCIDENTS: Incident[] = [
   ...cluster('gt', 33.7756, -84.3963, 'Georgia Tech', [
     { dLat: 0.0008, dLng: 0.0011, type: 'theft', title: 'Bike stolen outside library', desc: 'U-lock cut overnight at the Clough Commons racks.', risk: 0.95, h: 6 },
     { dLat: -0.0012, dLng: 0.0009, type: 'theft', title: 'E-bike taken from dorm rack', desc: 'Cable lock defeated near Tech Square dorms.', risk: 0.9, h: 14 },
@@ -83,6 +90,11 @@ export const SEED_INCIDENTS: Incident[] = [
   { id: 'we-0', type: 'suspicious', title: 'Suspicious cutting tool sighting', description: 'Resident reported a person with bolt cutters.', lat: 33.7352, lng: -84.4136, timestamp: hoursAgo(16), riskWeight: 0.4, neighborhood: 'West End' },
   { id: 'bh-0', type: 'theft', title: 'Bike stolen in Buckhead', description: 'Stolen from a retail bike rack midday.', lat: 33.8484, lng: -84.3671, timestamp: hoursAgo(50), riskWeight: 0.5, neighborhood: 'Buckhead' },
 ];
+
+export const SEED_INCIDENTS: Incident[] = RAW_INCIDENTS.map((inc, i) => ({
+  ...inc,
+  imageUrl: pickImage(inc.title, i),
+}));
 
 export const SEED_SAFE_ZONES: SafeZone[] = [
   {

@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import type { Incident, IncidentType } from '../lib/types';
+import { pickImage } from '../data/incidents';
 
 interface ReportModalProps {
   open: boolean;
@@ -31,14 +32,16 @@ export default function ReportModal({ open, coords, onClose, onSubmit }: ReportM
   const submit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!coords) return;
+    const finalTitle = title.trim() || (type === 'theft' ? 'Bike theft reported' : 'Suspicious activity');
     onSubmit({
       type,
-      title: title.trim() || (type === 'theft' ? 'Bike theft reported' : 'Suspicious activity'),
+      title: finalTitle,
       description: description.trim() || 'Reported via BikeWatch.',
       lat: coords.lat,
       lng: coords.lng,
       riskWeight: type === 'theft' ? 0.9 : 0.55,
       neighborhood: 'Reported',
+      imageUrl: pickImage(finalTitle, Math.floor(Math.random() * 3)),
     });
   };
 

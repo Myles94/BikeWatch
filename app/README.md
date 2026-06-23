@@ -15,18 +15,22 @@ npm run dev      # http://localhost:5173
 npm run build    # production build
 ```
 
-No API keys required — the map uses the free CARTO dark-matter vector style, so
-the demo never breaks on a missing token.
+No API keys required — the map uses **OpenFreeMap** (free, no key, no rate limits)
+with a custom cinematic dark style, so the demo never breaks on a missing token.
 
 ## What's in the MVP
 
 | Feature | Status |
 | --- | --- |
-| 1. Interactive risk map (seeded Atlanta incidents) | ✅ real |
-| 2. Hotspot heatmap (cyan → yellow → orange → red) | ✅ real (MapLibre heatmap) |
+| 1. Interactive risk map (seeded Atlanta incidents, rich dark geography) | ✅ real |
+| 2. Heatmap toggle → advanced shaded heatmap + per-zone risk analytics | ✅ real (MapLibre heatmap) |
 | 3. Incident reporting flow → new pin + heat updates | ✅ real |
-| 4. AI Copilot (parking / avoid / route / risk) | ✅ deterministic, location-aware |
+| 4. AI Copilot dock (parking / avoid / route / risk) | ✅ deterministic, location-aware |
 | 5. Safer route + safe-zone recommendation drawn on map | ✅ real |
+
+Reports are visible on load; the **Heatmap** button reveals the shaded density
+layer with risk-tier cards on each hotspot zone. The **Copilot** opens from a
+launcher and can be toggled closed — it never permanently covers the map.
 
 ## Demo click-path
 
@@ -45,20 +49,23 @@ the demo never breaks on a missing token.
 ```
 React + TS + Tailwind (Vite)
 │
-├─ MapView ......... MapLibre GL + CARTO dark style
-│                    • heatmap layer (riskWeight)
-│                    • incident / safe-zone markers
+├─ MapView ......... MapLibre GL + custom OpenFreeMap dark style (lib/mapStyle)
+│                    • 3D buildings, water, parks, strong labels
+│                    • advanced heatmap layer (toggle) + zone analytics
+│                    • incident / safe-zone markers, image popups
 │                    • safer-route line (glow + core)
-├─ CopilotPanel .... chat UI → runCopilot()
+├─ CopilotDock ..... toggleable chat launcher → runCopilot()
 ├─ ReportModal ..... add incident → updates state → map re-renders
 │
-├─ data/incidents.ts ... seeded Atlanta incidents, safe zones, routes
+├─ data/incidents.ts ... seeded Atlanta incidents (+ real photos), zones, routes
+├─ public/reports/ ..... downloaded bike/e-scooter photos (offline-safe)
 └─ lib/
-   ├─ geo.ts ........... haversine, hotspot clustering, nearest safe zone
+   ├─ mapStyle.ts ...... custom cinematic dark basemap style
+   ├─ geo.ts ........... haversine, hotspot clustering, zone analytics
    └─ copilot.ts ....... intent classifier + deterministic safety responses
 ```
 
-**Real:** map, heatmap, markers, reporting, hotspot math, copilot wiring to map
-actions. **Mocked/seeded:** incident data, safe zones, the one demo route, and
-the copilot's deterministic logic (no external LLM, so it's instant and never
-fails on stage). Swappable for an LLM later via `runCopilot`.
+**Real:** map, heatmap + zone analytics, markers, reporting, hotspot math,
+copilot wiring to map actions. **Mocked/seeded:** incident data, safe zones, the
+one demo route, and the copilot's deterministic logic (no external LLM, so it's
+instant and never fails on stage). Swappable for an LLM later via `runCopilot`.

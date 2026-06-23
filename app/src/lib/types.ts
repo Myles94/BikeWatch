@@ -10,6 +10,7 @@ export interface Incident {
   timestamp: string; // ISO
   riskWeight: number; // 0..1
   neighborhood?: string;
+  imageUrl?: string;
   isNew?: boolean;
 }
 

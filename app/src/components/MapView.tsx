@@ -1,8 +1,9 @@
 import { useEffect, useRef } from 'react';
 import maplibregl from 'maplibre-gl';
-import 'maplibre-gl/dist/maplibre-gl.css';
 import type { Incident, SafeRoute, SafeZone } from '../lib/types';
 import { CITY } from '../data/incidents';
+import { DARK_STYLE } from '../lib/mapStyle';
+import { computeZoneStats } from '../lib/geo';
 
 interface MapViewProps {
   incidents: Incident[];
@@ -10,13 +11,10 @@ interface MapViewProps {
   activeRoute: SafeRoute | null;
   highlightZoneId: string | null;
   avoidHotspot: { lat: number; lng: number; label: string } | null;
+  showHeatmap: boolean;
   onMapClick: (lng: number, lat: number) => void;
   onReady: () => void;
 }
-
-// CARTO dark-matter vector style — free, no API key required.
-const STYLE_URL =
-  'https://basemaps.cartocdn.com/gl/dark-matter-gl-style/style.json';
 
 function incidentFeatureCollection(incidents: Incident[]) {
   return {
@@ -29,12 +27,39 @@ function incidentFeatureCollection(incidents: Incident[]) {
   };
 }
 
+const timeAgo = (iso: string) => {
+  const h = Math.round((Date.now() - new Date(iso).getTime()) / 3600_000);
+  if (h < 1) return 'just now';
+  if (h < 24) return `${h}h ago`;
+  return `${Math.round(h / 24)}d ago`;
+};
+
+function popupHtml(inc: Incident) {
+  const tag =
+    inc.type === 'theft'
+      ? '<span style="color:#fca5a5">Theft</span>'
+      : '<span style="color:#fcd34d">Suspicious</span>';
+  const img = inc.imageUrl
+    ? `<img src="${inc.imageUrl}" alt="" style="width:100%;height:120px;object-fit:cover;border-radius:10px;margin-bottom:8px;display:block" />`
+    : '';
+  return `<div style="width:212px">
+    ${img}
+    <div style="font-weight:600;font-size:13px;color:#f1f5ff;margin-bottom:3px;line-height:1.25">${inc.title}</div>
+    <div style="font-size:12px;color:#c7d2ec;margin-bottom:8px;line-height:1.4">${inc.description}</div>
+    <div style="display:flex;justify-content:space-between;font-size:11px;color:#93a3c9">
+      <span>${inc.neighborhood ?? ''}</span>
+      <span>${tag} · ${timeAgo(inc.timestamp)}</span>
+    </div>
+  </div>`;
+}
+
 export default function MapView({
   incidents,
   safeZones,
   activeRoute,
   highlightZoneId,
   avoidHotspot,
+  showHeatmap,
   onMapClick,
   onReady,
 }: MapViewProps) {
@@ -42,6 +67,7 @@ export default function MapView({
   const mapRef = useRef<maplibregl.Map | null>(null);
   const incidentMarkers = useRef<maplibregl.Marker[]>([]);
   const zoneMarkers = useRef<maplibregl.Marker[]>([]);
+  const analyticsMarkers = useRef<maplibregl.Marker[]>([]);
   const avoidMarker = useRef<maplibregl.Marker | null>(null);
   const loadedRef = useRef(false);
 
@@ -55,44 +81,46 @@ export default function MapView({
     if (mapRef.current || !containerRef.current) return;
     const map = new maplibregl.Map({
       container: containerRef.current,
-      style: STYLE_URL,
+      style: DARK_STYLE,
       center: CITY.center,
       zoom: CITY.zoom,
-      pitch: 45,
-      bearing: -17,
+      pitch: 50,
+      bearing: -18,
       attributionControl: false,
     });
     mapRef.current = map;
     map.addControl(new maplibregl.NavigationControl({ showCompass: false }), 'bottom-right');
 
     map.on('load', () => {
-      // Heatmap source
       map.addSource('incidents', {
         type: 'geojson',
         data: incidentFeatureCollection([]),
       });
 
+      // Advanced shaded heatmap (hidden until toggled)
       map.addLayer({
         id: 'incident-heat',
         type: 'heatmap',
         source: 'incidents',
         maxzoom: 17,
+        layout: { visibility: 'none' },
         paint: {
-          'heatmap-weight': ['get', 'weight'],
-          'heatmap-intensity': ['interpolate', ['linear'], ['zoom'], 10, 1, 16, 3.2],
+          'heatmap-weight': ['interpolate', ['linear'], ['get', 'weight'], 0, 0.35, 1, 1.4],
+          'heatmap-intensity': ['interpolate', ['linear'], ['zoom'], 10, 1.5, 13, 2.4, 16, 3.8],
           'heatmap-color': [
             'interpolate',
             ['linear'],
             ['heatmap-density'],
-            0, 'rgba(13,20,36,0)',
-            0.2, 'rgba(34,211,238,0.45)',
-            0.4, 'rgba(250,204,21,0.7)',
-            0.6, 'rgba(249,115,22,0.85)',
-            0.8, 'rgba(239,68,68,0.92)',
+            0, 'rgba(8,12,24,0)',
+            0.12, 'rgba(34,211,238,0.4)',
+            0.28, 'rgba(56,189,248,0.6)',
+            0.45, 'rgba(250,204,21,0.78)',
+            0.62, 'rgba(249,115,22,0.88)',
+            0.8, 'rgba(239,68,68,0.94)',
             1, 'rgba(190,18,60,1)',
           ],
-          'heatmap-radius': ['interpolate', ['linear'], ['zoom'], 10, 18, 14, 42, 16, 70],
-          'heatmap-opacity': ['interpolate', ['linear'], ['zoom'], 14, 0.9, 16.5, 0.35],
+          'heatmap-radius': ['interpolate', ['linear'], ['zoom'], 10, 28, 13, 58, 16, 92],
+          'heatmap-opacity': ['interpolate', ['linear'], ['zoom'], 14, 0.95, 16.5, 0.55],
         },
       });
 
@@ -106,27 +134,18 @@ export default function MapView({
         type: 'line',
         source: 'route',
         layout: { 'line-cap': 'round', 'line-join': 'round' },
-        paint: {
-          'line-color': '#22c55e',
-          'line-width': 14,
-          'line-blur': 12,
-          'line-opacity': 0.45,
-        },
+        paint: { 'line-color': '#34d399', 'line-width': 16, 'line-blur': 14, 'line-opacity': 0.4 },
       });
       map.addLayer({
         id: 'route-line',
         type: 'line',
         source: 'route',
         layout: { 'line-cap': 'round', 'line-join': 'round' },
-        paint: {
-          'line-color': '#86efac',
-          'line-width': 4,
-        },
+        paint: { 'line-color': '#6ee7b7', 'line-width': 3.5 },
       });
 
       loadedRef.current = true;
       onReadyRef.current();
-      // trigger initial data render
       map.fire('bikewatch:ready');
     });
 
@@ -141,7 +160,7 @@ export default function MapView({
     };
   }, []);
 
-  // Update heatmap + incident markers
+  // Update heatmap data + incident markers (markers always visible; dim under heatmap)
   useEffect(() => {
     const map = mapRef.current;
     if (!map) return;
@@ -156,14 +175,9 @@ export default function MapView({
         el.className = `incident-marker ${inc.type === 'suspicious' ? 'suspicious' : ''} ${
           inc.isNew ? 'new' : ''
         }`;
-        const popup = new maplibregl.Popup({ offset: 16, closeButton: true }).setHTML(
-          `<div style="min-width:180px">
-            <div style="font-weight:600;font-size:13px;margin-bottom:2px">${inc.title}</div>
-            <div style="font-size:12px;color:#9fb0d4;margin-bottom:6px">${inc.description}</div>
-            <div style="font-size:11px;color:#7c8db5">${
-              inc.neighborhood ?? ''
-            } · ${inc.type === 'theft' ? 'Theft' : 'Suspicious'}</div>
-          </div>`,
+        el.style.opacity = showHeatmap ? '0.45' : '1';
+        const popup = new maplibregl.Popup({ offset: 16, closeButton: true, maxWidth: '240px' }).setHTML(
+          popupHtml(inc),
         );
         return new maplibregl.Marker({ element: el })
           .setLngLat([inc.lng, inc.lat])
@@ -173,7 +187,35 @@ export default function MapView({
     };
     if (loadedRef.current) apply();
     else map.once('bikewatch:ready', apply);
-  }, [incidents]);
+  }, [incidents, showHeatmap]);
+
+  // Toggle heatmap layer + zone analytics overlays
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map) return;
+    const apply = () => {
+      if (map.getLayer('incident-heat')) {
+        map.setLayoutProperty('incident-heat', 'visibility', showHeatmap ? 'visible' : 'none');
+      }
+      analyticsMarkers.current.forEach((m) => m.remove());
+      analyticsMarkers.current = [];
+      if (!showHeatmap) return;
+      const zones = computeZoneStats(incidents);
+      analyticsMarkers.current = zones.map((z) => {
+        const el = document.createElement('div');
+        el.className = `zone-analytics tier-${z.tier.toLowerCase()}`;
+        el.innerHTML = `
+          <div class="za-tier">${z.tier} risk</div>
+          <div class="za-name">${z.label}</div>
+          <div class="za-meta">${z.count} reports · ${z.theftCount} thefts</div>`;
+        return new maplibregl.Marker({ element: el, anchor: 'center' })
+          .setLngLat([z.lng, z.lat])
+          .addTo(map);
+      });
+    };
+    if (loadedRef.current) apply();
+    else map.once('bikewatch:ready', apply);
+  }, [showHeatmap, incidents]);
 
   // Safe zone markers
   useEffect(() => {
@@ -184,15 +226,15 @@ export default function MapView({
       zoneMarkers.current = safeZones.map((z) => {
         const el = document.createElement('div');
         el.className = 'safe-zone-marker';
-        el.textContent = '🛡';
-        el.style.transform =
-          highlightZoneId === z.id ? 'scale(1.45)' : 'scale(1)';
+        el.innerHTML =
+          '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#04130a" stroke-width="2.4"><path d="M12 3l7 3v5c0 4.5-3 8-7 10-4-2-7-5.5-7-10V6l7-3z"/></svg>';
+        el.style.transform = highlightZoneId === z.id ? 'scale(1.4)' : 'scale(1)';
         el.style.transition = 'transform 0.25s ease';
-        const popup = new maplibregl.Popup({ offset: 18 }).setHTML(
-          `<div style="min-width:190px">
-            <div style="font-weight:600;font-size:13px;color:#86efac;margin-bottom:2px">${z.title}</div>
-            <div style="font-size:12px;color:#9fb0d4;margin-bottom:6px">${z.description}</div>
-            <div style="font-size:11px;color:#7c8db5">${z.rationale}</div>
+        const popup = new maplibregl.Popup({ offset: 18, maxWidth: '230px' }).setHTML(
+          `<div style="width:198px">
+            <div style="font-weight:600;font-size:13px;color:#6ee7b7;margin-bottom:3px">${z.title}</div>
+            <div style="font-size:12px;color:#c7d2ec;margin-bottom:6px;line-height:1.4">${z.description}</div>
+            <div style="font-size:11px;color:#93a3c9;line-height:1.4">${z.rationale}</div>
           </div>`,
         );
         const m = new maplibregl.Marker({ element: el })
@@ -232,7 +274,7 @@ export default function MapView({
             activeRoute.coordinates[0] as [number, number],
           ),
         );
-        map.fitBounds(bounds, { padding: 120, duration: 1400, pitch: 50 });
+        map.fitBounds(bounds, { padding: 160, duration: 1400, pitch: 55 });
       } else {
         src.setData({ type: 'FeatureCollection', features: [] });
       }
@@ -252,7 +294,7 @@ export default function MapView({
       map.flyTo({
         center: [avoidHotspot.lng, avoidHotspot.lat],
         zoom: 14.5,
-        pitch: 55,
+        pitch: 58,
         duration: 1600,
       });
     };
