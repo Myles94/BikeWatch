@@ -4,21 +4,29 @@ export default {
   theme: {
     extend: {
       colors: {
-        ink: '#070b14',
-        panel: '#0d1424',
-        'panel-2': '#121b30',
-        edge: '#1e2a44',
-        brand: '#22d3ee',
-        'brand-2': '#0ea5b7',
-        danger: '#ef4444',
-        warn: '#f59e0b',
-        safe: '#22c55e',
+        // Tactical base — desaturated near-black with a cold cast
+        ink: '#06080d',
+        panel: '#0a0d15',
+        'panel-2': '#10141f',
+        edge: '#1b2233',
+        'edge-2': '#262f44',
+        // Signal system: amber = BikeWatch "watch" signal (chrome + caution)
+        brand: '#ffb000',
+        'brand-2': '#d99400',
+        warn: '#ffb000',
+        // Escalation = active theft only
+        danger: '#ff453a',
+        // Verified safe only
+        safe: '#21d07a',
+        muted: '#7c8699',
       },
       fontFamily: {
-        sans: ['Inter', 'system-ui', 'sans-serif'],
+        sans: ['Archivo', 'system-ui', 'sans-serif'],
+        display: ['"Archivo Expanded"', 'Archivo', 'sans-serif'],
+        mono: ['"JetBrains Mono"', 'ui-monospace', 'monospace'],
       },
-      boxShadow: {
-        glow: '0 0 0 1px rgba(34,211,238,0.25), 0 0 30px rgba(34,211,238,0.18)',
+      letterSpacing: {
+        signage: '0.18em',
       },
       keyframes: {
         pulseRing: {
@@ -29,10 +37,28 @@ export default {
           '0%': { transform: 'translateY(8px)', opacity: '0' },
           '100%': { transform: 'translateY(0)', opacity: '1' },
         },
+        bootIn: {
+          '0%': { transform: 'translateY(10px)', opacity: '0', clipPath: 'inset(0 100% 0 0)' },
+          '60%': { clipPath: 'inset(0 0 0 0)' },
+          '100%': { transform: 'translateY(0)', opacity: '1', clipPath: 'inset(0 0 0 0)' },
+        },
+        scanSweep: {
+          '0%': { transform: 'translateY(-12%)', opacity: '0' },
+          '12%': { opacity: '0.9' },
+          '90%': { opacity: '0.5' },
+          '100%': { transform: 'translateY(112%)', opacity: '0' },
+        },
+        livePulse: {
+          '0%,100%': { opacity: '1', transform: 'scale(1)' },
+          '50%': { opacity: '0.35', transform: 'scale(0.82)' },
+        },
       },
       animation: {
         pulseRing: 'pulseRing 1.8s ease-out infinite',
         slideUp: 'slideUp 0.25s ease-out',
+        bootIn: 'bootIn 0.55s cubic-bezier(0.22,1,0.36,1) both',
+        scanSweep: 'scanSweep 1.1s ease-in-out',
+        livePulse: 'livePulse 1.6s ease-in-out infinite',
       },
     },
   },

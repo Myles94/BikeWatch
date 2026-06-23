@@ -34,21 +34,30 @@ const timeAgo = (iso: string) => {
   return `${Math.round(h / 24)}d ago`;
 };
 
+const MONO = "'JetBrains Mono',ui-monospace,monospace";
+
 function popupHtml(inc: Incident) {
-  const tag =
-    inc.type === 'theft'
-      ? '<span style="color:#fca5a5">Theft</span>'
-      : '<span style="color:#fcd34d">Suspicious</span>';
+  const isTheft = inc.type === 'theft';
+  const accent = isTheft ? '#ff453a' : '#ffb000';
+  const tagText = isTheft ? 'THEFT' : 'SUSPICIOUS';
   const img = inc.imageUrl
-    ? `<img src="${inc.imageUrl}" alt="" style="width:100%;height:168px;object-fit:cover;border-radius:11px;margin-bottom:10px;display:block" />`
+    ? `<div style="position:relative">
+         <img src="${inc.imageUrl}" alt="" style="width:100%;height:172px;object-fit:cover;display:block" />
+         <div style="position:absolute;top:9px;left:9px;display:flex;align-items:center;gap:6px;background:rgba(6,8,13,0.82);border:1px solid ${accent};padding:3px 7px">
+           <span style="height:6px;width:6px;border-radius:999px;background:${accent}"></span>
+           <span style="font-family:${MONO};font-size:9px;letter-spacing:0.14em;color:${accent}">${tagText}</span>
+         </div>
+       </div>`
     : '';
-  return `<div style="width:280px">
+  return `<div style="width:288px">
     ${img}
-    <div style="font-weight:600;font-size:15px;color:#f1f5ff;margin-bottom:5px;line-height:1.25">${inc.title}</div>
-    <div style="font-size:13px;color:#c7d2ec;margin-bottom:10px;line-height:1.5">${inc.description}</div>
-    <div style="display:flex;justify-content:space-between;font-size:12px;color:#93a3c9">
-      <span>${inc.neighborhood ?? ''}</span>
-      <span>${tag} · ${timeAgo(inc.timestamp)}</span>
+    <div style="padding:11px 13px 13px">
+      <div style="font-family:'Archivo',sans-serif;font-weight:700;font-size:15px;color:#f1f5ff;margin-bottom:6px;line-height:1.25">${inc.title}</div>
+      <div style="font-size:13px;color:#c7d2ec;margin-bottom:11px;line-height:1.5">${inc.description}</div>
+      <div style="display:flex;justify-content:space-between;font-family:${MONO};font-size:10px;letter-spacing:0.08em;text-transform:uppercase;color:#7c8699;border-top:1px solid #1b2233;padding-top:9px">
+        <span>${inc.neighborhood ?? ''}</span>
+        <span>${timeAgo(inc.timestamp)}</span>
+      </div>
     </div>
   </div>`;
 }
@@ -121,13 +130,13 @@ export default function MapView({
             'interpolate',
             ['linear'],
             ['heatmap-density'],
-            0, 'rgba(8,12,24,0)',
-            0.1, 'rgba(34,211,238,0.35)',
-            0.25, 'rgba(56,189,248,0.6)',
-            0.42, 'rgba(250,204,21,0.8)',
-            0.6, 'rgba(249,115,22,0.9)',
-            0.8, 'rgba(239,68,68,0.95)',
-            1, 'rgba(190,18,60,1)',
+            0, 'rgba(6,8,13,0)',
+            0.1, 'rgba(38,95,110,0.35)',
+            0.28, 'rgba(70,150,150,0.55)',
+            0.45, 'rgba(255,176,0,0.82)',
+            0.65, 'rgba(255,128,32,0.9)',
+            0.82, 'rgba(255,69,58,0.95)',
+            1, 'rgba(176,18,38,1)',
           ],
           'heatmap-radius': ['interpolate', ['linear'], ['zoom'], 10, 44, 13, 95, 16, 150],
           'heatmap-opacity': ['interpolate', ['linear'], ['zoom'], 14, 0.95, 17, 0.6],
@@ -169,14 +178,14 @@ export default function MapView({
         type: 'line',
         source: 'route',
         layout: { 'line-cap': 'round', 'line-join': 'round' },
-        paint: { 'line-color': '#34d399', 'line-width': 16, 'line-blur': 14, 'line-opacity': 0.4 },
+        paint: { 'line-color': '#ffb000', 'line-width': 14, 'line-blur': 12, 'line-opacity': 0.32 },
       });
       map.addLayer({
         id: 'route-line',
         type: 'line',
         source: 'route',
         layout: { 'line-cap': 'round', 'line-join': 'round' },
-        paint: { 'line-color': '#6ee7b7', 'line-width': 3.5 },
+        paint: { 'line-color': '#ffc94d', 'line-width': 3.5 },
       });
 
       loadedRef.current = true;
@@ -286,11 +295,15 @@ export default function MapView({
           '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#04130a" stroke-width="2.4"><path d="M12 3l7 3v5c0 4.5-3 8-7 10-4-2-7-5.5-7-10V6l7-3z"/></svg>';
         el.style.transform = highlightZoneId === z.id ? 'scale(1.4)' : 'scale(1)';
         el.style.transition = 'transform 0.25s ease';
-        const popup = new maplibregl.Popup({ offset: 18, maxWidth: '230px' }).setHTML(
-          `<div style="width:198px">
-            <div style="font-weight:600;font-size:13px;color:#6ee7b7;margin-bottom:3px">${z.title}</div>
-            <div style="font-size:12px;color:#c7d2ec;margin-bottom:6px;line-height:1.4">${z.description}</div>
-            <div style="font-size:11px;color:#93a3c9;line-height:1.4">${z.rationale}</div>
+        const popup = new maplibregl.Popup({ offset: 18, maxWidth: '240px' }).setHTML(
+          `<div style="width:212px;padding:11px 13px 12px">
+            <div style="display:flex;align-items:center;gap:6px;margin-bottom:7px">
+              <span style="height:6px;width:6px;border-radius:999px;background:#21d07a"></span>
+              <span style="font-family:${MONO};font-size:9px;letter-spacing:0.14em;text-transform:uppercase;color:#21d07a">Verified Safe Zone</span>
+            </div>
+            <div style="font-family:'Archivo',sans-serif;font-weight:700;font-size:13px;color:#f1f5ff;margin-bottom:4px">${z.title}</div>
+            <div style="font-size:12px;color:#c7d2ec;margin-bottom:7px;line-height:1.45">${z.description}</div>
+            <div style="font-family:${MONO};font-size:10px;color:#7c8699;line-height:1.45;border-top:1px solid #1b2233;padding-top:8px">${z.rationale}</div>
           </div>`,
         );
         const m = new maplibregl.Marker({ element: el })

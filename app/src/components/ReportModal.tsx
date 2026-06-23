@@ -46,31 +46,33 @@ export default function ReportModal({ open, coords, onClose, onSubmit }: ReportM
   };
 
   return (
-    <div className="absolute inset-0 z-30 grid place-items-center bg-black/60 backdrop-blur-sm">
+    <div className="absolute inset-0 z-30 grid place-items-center bg-black/65 backdrop-blur-sm">
       <form
         onSubmit={submit}
-        className="w-[420px] max-w-[92vw] animate-slideUp rounded-2xl border border-edge bg-panel p-5 shadow-2xl"
+        className="tac-panel w-[428px] max-w-[92vw] animate-slideUp p-5 shadow-2xl"
       >
-        <div className="mb-1 flex items-center gap-2">
-          <div className="grid h-8 w-8 place-items-center rounded-lg bg-danger/15 text-danger">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+        <div className="mb-1 flex items-center gap-2.5">
+          <div className="grid h-8 w-8 place-items-center border border-danger/50 bg-danger/10 text-danger">
+            <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
               <path d="M12 9v4m0 4h.01M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0Z" />
             </svg>
           </div>
-          <h2 className="text-base font-semibold">Report an incident</h2>
+          <h2 className="font-display text-[13px] font-bold uppercase tracking-[0.14em] text-white">
+            Report incident
+          </h2>
           <button
             type="button"
             onClick={onClose}
-            className="ml-auto text-slate-400 transition hover:text-slate-200"
+            className="ml-auto text-muted transition hover:text-slate-200"
             aria-label="Close"
           >
             ✕
           </button>
         </div>
-        <p className="mb-4 text-xs text-slate-400">
+        <p className="mono mb-4 text-[10px] uppercase tracking-[0.1em] text-muted">
           {coords
-            ? `Location: ${coords.lat.toFixed(4)}, ${coords.lng.toFixed(4)}`
-            : 'Click the map to set a location.'}
+            ? `Coord ${coords.lat.toFixed(4)}, ${coords.lng.toFixed(4)}`
+            : 'Click map to set location.'}
         </p>
 
         <div className="mb-4 grid grid-cols-2 gap-2">
@@ -79,47 +81,47 @@ export default function ReportModal({ open, coords, onClose, onSubmit }: ReportM
               key={t.value}
               type="button"
               onClick={() => setType(t.value)}
-              className={`rounded-xl border px-3 py-2 text-left transition ${
+              className={`border px-3 py-2 text-left transition ${
                 type === t.value
                   ? 'border-brand bg-brand/10'
-                  : 'border-edge bg-panel-2 hover:border-slate-500'
+                  : 'border-edge bg-panel-2 hover:border-edge-2'
               }`}
             >
-              <div className="text-sm font-medium">{t.label}</div>
-              <div className="text-[11px] text-slate-400">{t.hint}</div>
+              <div className="text-[13px] font-semibold text-slate-100">{t.label}</div>
+              <div className="mono mt-0.5 text-[9px] uppercase tracking-[0.08em] text-muted">{t.hint}</div>
             </button>
           ))}
         </div>
 
-        <label className="mb-1 block text-xs font-medium text-slate-300">Title</label>
+        <label className="tac-label mb-1.5 block">Title</label>
         <input
           value={title}
           onChange={(e) => setTitle(e.target.value)}
           placeholder="e.g. Bike stolen outside cafe"
-          className="mb-3 w-full rounded-lg border border-edge bg-panel-2 px-3 py-2 text-sm focus:border-brand focus:outline-none"
+          className="mb-3 w-full border border-edge bg-panel-2 px-3 py-2 text-[13px] focus:border-brand focus:outline-none"
         />
 
-        <label className="mb-1 block text-xs font-medium text-slate-300">Details</label>
+        <label className="tac-label mb-1.5 block">Details</label>
         <textarea
           value={description}
           onChange={(e) => setDescription(e.target.value)}
           placeholder="What happened?"
           rows={3}
-          className="mb-4 w-full resize-none rounded-lg border border-edge bg-panel-2 px-3 py-2 text-sm focus:border-brand focus:outline-none"
+          className="mb-4 w-full resize-none border border-edge bg-panel-2 px-3 py-2 text-[13px] focus:border-brand focus:outline-none"
         />
 
         <div className="flex justify-end gap-2">
           <button
             type="button"
             onClick={onClose}
-            className="rounded-lg px-4 py-2 text-sm text-slate-300 transition hover:text-white"
+            className="mono px-4 py-2 text-[11px] uppercase tracking-[0.12em] text-slate-300 transition hover:text-white"
           >
             Cancel
           </button>
           <button
             type="submit"
             disabled={!coords}
-            className="rounded-lg bg-danger px-4 py-2 text-sm font-semibold text-white transition hover:bg-red-600 disabled:opacity-40"
+            className="bg-danger px-4 py-2 text-[11px] font-bold uppercase tracking-[0.12em] text-white transition hover:bg-[#e03b30] disabled:opacity-40"
           >
             Submit report
           </button>

@@ -14,11 +14,12 @@ interface CopilotDockProps {
   onAsk: (question: string) => CopilotResult;
 }
 
-function SparkIcon({ className = '' }: { className?: string }) {
+function CoreIcon({ className = '' }: { className?: string }) {
   return (
-    <svg className={className} width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M12 3v3m0 12v3M5.6 5.6l2.1 2.1m8.6 8.6 2.1 2.1M3 12h3m12 0h3M5.6 18.4l2.1-2.1m8.6-8.6 2.1-2.1" />
-      <circle cx="12" cy="12" r="3.2" />
+    <svg className={className} width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+      <rect x="6" y="6" width="12" height="12" />
+      <path d="M9.5 9.5h5v5h-5z" />
+      <path d="M12 3v3M12 18v3M3 12h3M18 12h3" />
     </svg>
   );
 }
@@ -27,7 +28,7 @@ export default function CopilotDock({ open, onOpenChange, onAsk }: CopilotDockPr
   const [items, setItems] = useState<ChatItem[]>([
     {
       role: 'bot',
-      text: 'I monitor live theft activity across Atlanta. Ask me where to park, what to avoid, or for a safer route home.',
+      text: 'Theft-intelligence console online. I track live activity across Atlanta — ask where to park, what to avoid, or for a safer route home.',
     },
   ]);
   const [input, setInput] = useState('');
@@ -55,27 +56,29 @@ export default function CopilotDock({ open, onOpenChange, onAsk }: CopilotDockPr
     <div className="pointer-events-none absolute bottom-5 right-5 z-30 flex flex-col items-end gap-3">
       {/* Panel */}
       <div
-        className={`pointer-events-auto flex w-[372px] max-w-[90vw] origin-bottom-right flex-col overflow-hidden rounded-2xl border border-white/10 bg-[#0a101c]/90 shadow-[0_24px_70px_rgba(0,0,0,0.6)] backdrop-blur-xl transition-all duration-200 ${
+        className={`tac-panel pointer-events-auto flex w-[378px] max-w-[90vw] origin-bottom-right flex-col overflow-hidden shadow-[0_24px_70px_rgba(0,0,0,0.65)] transition-all duration-200 ${
           open
-            ? 'pointer-events-auto translate-y-0 scale-100 opacity-100'
+            ? 'translate-y-0 scale-100 opacity-100'
             : 'pointer-events-none translate-y-3 scale-95 opacity-0'
         }`}
-        style={{ height: open ? 'min(560px, 72vh)' : 0 }}
+        style={{ height: open ? 'min(564px, 72vh)' : 0 }}
       >
-        <div className="flex items-center gap-2.5 border-b border-white/8 px-4 py-3">
-          <span className="grid h-8 w-8 place-items-center rounded-lg bg-brand/15 text-brand">
-            <SparkIcon />
+        <div className="flex items-center gap-2.5 border-b border-edge px-4 py-3">
+          <span className="grid h-8 w-8 place-items-center border border-brand/50 bg-brand/10 text-brand">
+            <CoreIcon />
           </span>
           <div className="leading-tight">
-            <div className="text-[13px] font-semibold">Copilot</div>
-            <div className="flex items-center gap-1.5 text-[10.5px] text-slate-400">
-              <span className="h-1.5 w-1.5 rounded-full bg-safe shadow-[0_0_6px_#22c55e]" />
-              monitoring live
+            <div className="font-display text-[12px] font-bold uppercase tracking-[0.16em] text-white">
+              Copilot
+            </div>
+            <div className="mono mt-1 flex items-center gap-1.5 text-[9px] uppercase tracking-[0.14em] text-muted">
+              <span className="h-1.5 w-1.5 rounded-full bg-safe animate-livePulse" />
+              Monitoring live
             </div>
           </div>
           <button
             onClick={() => onOpenChange(false)}
-            className="ml-auto grid h-7 w-7 place-items-center rounded-lg text-slate-400 transition hover:bg-white/5 hover:text-white"
+            className="ml-auto grid h-7 w-7 place-items-center text-muted transition hover:bg-white/5 hover:text-white"
             aria-label="Close copilot"
           >
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M6 6l12 12M18 6 6 18" /></svg>
@@ -88,16 +91,16 @@ export default function CopilotDock({ open, onOpenChange, onAsk }: CopilotDockPr
               <div
                 className={
                   it.role === 'user'
-                    ? 'max-w-[85%] rounded-2xl rounded-br-sm bg-brand px-3.5 py-2 text-[13px] font-medium text-[#04222a]'
-                    : 'max-w-[92%] rounded-2xl rounded-bl-sm border border-white/8 bg-white/[0.04] px-3.5 py-2.5 text-[13px] text-slate-100'
+                    ? 'max-w-[85%] bg-brand px-3.5 py-2 text-[13px] font-medium text-[#1a1300]'
+                    : 'max-w-[92%] border border-edge border-l-2 border-l-brand bg-white/[0.03] px-3.5 py-2.5 text-[13px] text-slate-100'
                 }
               >
                 <p className="leading-snug">{it.text}</p>
                 {it.bullets && (
-                  <ul className="mt-2 space-y-1.5">
+                  <ul className="mt-2.5 space-y-1.5">
                     {it.bullets.map((b, i) => (
                       <li key={i} className="flex gap-2 text-[12px] text-slate-300">
-                        <span className="mt-[7px] h-1 w-1 shrink-0 rounded-full bg-brand" />
+                        <span className="mono mt-px text-[10px] text-brand">{String(i + 1).padStart(2, '0')}</span>
                         <span className="leading-snug">{b}</span>
                       </li>
                     ))}
@@ -108,7 +111,7 @@ export default function CopilotDock({ open, onOpenChange, onAsk }: CopilotDockPr
           ))}
           {thinking && (
             <div className="animate-slideUp">
-              <div className="inline-flex items-center gap-1.5 rounded-2xl rounded-bl-sm border border-white/8 bg-white/[0.04] px-3.5 py-3">
+              <div className="inline-flex items-center gap-1.5 border border-edge bg-white/[0.03] px-3.5 py-3">
                 <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-brand [animation-delay:-0.2s]" />
                 <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-brand [animation-delay:-0.1s]" />
                 <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-brand" />
@@ -117,13 +120,13 @@ export default function CopilotDock({ open, onOpenChange, onAsk }: CopilotDockPr
           )}
         </div>
 
-        <div className="border-t border-white/8 px-3 py-3">
+        <div className="border-t border-edge px-3 py-3">
           <div className="mb-2 flex flex-wrap gap-1.5">
             {SUGGESTED_PROMPTS.map((p) => (
               <button
                 key={p}
                 onClick={() => submit(p)}
-                className="rounded-full border border-white/10 bg-white/[0.03] px-2.5 py-1 text-[11px] text-slate-300 transition hover:border-brand/60 hover:text-brand"
+                className="mono border border-edge bg-white/[0.02] px-2.5 py-1 text-[10px] uppercase tracking-[0.06em] text-slate-300 transition hover:border-brand/60 hover:text-brand"
               >
                 {p}
               </button>
@@ -134,18 +137,19 @@ export default function CopilotDock({ open, onOpenChange, onAsk }: CopilotDockPr
               e.preventDefault();
               submit(input);
             }}
-            className="flex items-center gap-2 rounded-xl border border-white/10 bg-white/[0.03] px-3 py-2 focus-within:border-brand/60"
+            className="flex items-center gap-2 border border-edge bg-white/[0.02] px-3 py-2 focus-within:border-brand/60"
           >
+            <span className="mono text-[12px] text-brand">{'>'}</span>
             <input
               value={input}
               onChange={(e) => setInput(e.target.value)}
-              placeholder="Ask about parking, routes, or risk…"
-              className="flex-1 bg-transparent text-[13px] text-slate-100 placeholder:text-slate-500 focus:outline-none"
+              placeholder="Query parking, routes, or risk…"
+              className="mono flex-1 bg-transparent text-[12px] text-slate-100 placeholder:text-muted focus:outline-none"
             />
             <button
               type="submit"
               disabled={!input.trim()}
-              className="grid h-7 w-7 place-items-center rounded-lg bg-brand text-[#04222a] transition hover:bg-brand-2 disabled:opacity-40"
+              className="grid h-7 w-7 place-items-center bg-brand text-[#1a1300] transition hover:bg-brand-2 disabled:opacity-40"
               aria-label="Send"
             >
               <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2"><path d="m5 12 14-7-7 14-2-5-5-2Z" /></svg>
@@ -157,13 +161,13 @@ export default function CopilotDock({ open, onOpenChange, onAsk }: CopilotDockPr
       {/* Launcher */}
       <button
         onClick={() => onOpenChange(!open)}
-        className={`pointer-events-auto flex items-center gap-2 rounded-full border px-4 py-2.5 text-[13px] font-semibold shadow-lg backdrop-blur-md transition ${
+        className={`pointer-events-auto flex items-center gap-2 border px-4 py-2.5 text-[11px] font-bold uppercase tracking-[0.14em] shadow-lg transition ${
           open
-            ? 'border-white/10 bg-[#0a101c]/80 text-slate-300 hover:text-white'
-            : 'border-brand/40 bg-brand text-[#04222a] hover:bg-brand-2'
+            ? 'border-edge bg-panel/90 text-slate-300 hover:text-white'
+            : 'border-brand bg-brand text-[#1a1300] hover:bg-brand-2'
         }`}
       >
-        <SparkIcon />
+        <CoreIcon />
         {open ? 'Hide Copilot' : 'Ask Copilot'}
       </button>
     </div>
