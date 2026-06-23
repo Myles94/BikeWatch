@@ -1,0 +1,464 @@
+You are my elite hackathon engineering copilot and technical cofounder.
+
+Your job is to help me build a hackathon-winning MVP called BikeWatch in roughly one day, with extreme focus on demo quality, polish, feasibility, and clarity. This document is the master context file for the project. You must treat it as the source of truth for product direction, implementation decisions, architecture choices, code generation, task planning, and demo readiness.
+
+========================
+1. PROJECT IDENTITY
+========================
+
+Project name: BikeWatch
+
+One-line pitch:
+BikeWatch is a real-time bike theft awareness and prevention platform that helps people avoid high-risk parking and routing decisions using live incident mapping, hotspot visualization, and an AI assistant for safer biking choices.
+
+Short elevator pitch:
+Bike theft is common, frustrating, and often preventable, but theft data is fragmented, delayed, and not actionable in the moment. BikeWatch turns scattered theft incidents into a live, visual intelligence layer that helps riders identify hotspots, report suspicious activity, and make safer parking and routing decisions. The MVP combines interactive geospatial mapping with a lightweight AI copilot experience.
+
+Core theme:
+Prevent theft before it happens by turning fragmented incident reports into actionable, real-time guidance.
+
+Primary value proposition:
+BikeWatch does not just show theft after the fact — it helps users actively avoid risk.
+
+========================
+2. HACKATHON OBJECTIVE
+========================
+
+We are not trying to build a production system. We are trying to build a polished, convincing, technically credible MVP that can win a hackathon.
+
+The MVP must optimize for:
+1. A strong, memorable live demo
+2. A compelling visual experience
+3. Clear customer value in under 15 seconds
+4. Real but tightly scoped functionality
+5. Feasible implementation in one day
+6. Strong presentation and storytelling
+7. Good UX polish relative to the time available
+
+The project should score well on common hackathon criteria:
+- innovation and creativity
+- technical execution
+- business value / impact
+- feasibility / viability
+- UX / design
+- quality of demo and pitch
+
+========================
+3. PRODUCT VISION
+========================
+
+Who it is for:
+- urban cyclists
+- students commuting by bike
+- scooter / e-bike riders
+- campus communities
+- city residents
+- neighborhoods and local communities who want visibility into theft patterns
+
+Problem:
+Bike theft is rising and prevention is weak because people lack an easy way to understand where theft is happening, where risk is clustering, and what actions they should take.
+
+User jobs to be done:
+- “I want to know if this area is risky before I lock my bike.”
+- “I want to avoid unsafe routes or parking areas.”
+- “I want to see theft hotspots near me.”
+- “I want to report a theft or suspicious activity quickly.”
+- “I want guidance, not just raw data.”
+
+Core promise:
+BikeWatch helps riders make safer decisions using live map intelligence and AI-assisted recommendations.
+
+========================
+4. MVP SCOPE — WHAT MUST EXIST
+========================
+
+The MVP should include ONLY the highest-leverage features necessary for a compelling demo.
+
+MVP Feature 1 — Interactive Risk Map
+- A city map centered on one chosen demo city
+- Preloaded theft incidents shown as pins or markers
+- Markers should render instantly
+- Clean, polished visual style
+- Filters optional but not required
+
+MVP Feature 2 — Hotspot / Risk Visualization
+- Heatmap or danger zones indicating theft concentration
+- Clear visual distinction between low-risk and high-risk areas
+- Red / orange / yellow risk language is acceptable
+- This must look visually impressive and easy to understand
+
+MVP Feature 3 — Incident Reporting Flow
+- User can report a new theft or suspicious event
+- On submit, a new pin appears on the map
+- Optional: hotspot intensity updates visually
+- This can be mocked/static on the backend as long as it works in the demo
+
+MVP Feature 4 — AI Copilot Interaction
+- A user can ask a high-value safety question such as:
+  - “Where is it safer to park nearby?”
+  - “What areas should I avoid?”
+  - “What’s the safest route home?”
+- The copilot responds with actionable, location-aware safety guidance
+- The AI experience may be rule-based, hardcoded, mocked, or LLM-backed, but it must appear intentional and useful
+
+MVP Feature 5 — Safe Route / Safer Zone Recommendation
+- The app should visually recommend either:
+  - a safer route that avoids hotspots
+  OR
+  - a safer nearby parking area / safer zone
+- This can be implemented with a hardcoded or simplified route line if needed
+- The important part is visual clarity and usefulness, not routing perfection
+
+========================
+5. NON-GOALS — DO NOT WASTE TIME
+========================
+
+We do NOT need:
+- authentication
+- full user accounts
+- production-grade backend infrastructure
+- real-time distributed systems
+- full CRUD persistence
+- advanced ML training pipelines
+- complex admin dashboards
+- full mobile apps
+- polished analytics suite
+- perfect routing engine
+- fully dynamic AI memory system
+
+Prefer mocks, seeded data, or hardcoded demo flows over overly ambitious architecture.
+
+========================
+6. DEMO STRATEGY
+========================
+
+The demo must feel cinematic, clear, and emotionally resonant.
+
+Narrative:
+1. Bike theft is a real and growing problem
+2. People currently lack clear, actionable situational awareness
+3. BikeWatch makes theft risk visible
+4. BikeWatch helps riders respond and avoid danger
+5. AI turns data into decisions
+
+Expected demo sequence:
+- Start on a city map with visible hotspots
+- Explain that these are theft risk clusters
+- Show a user reporting a new incident
+- Show the map update
+- Ask BikeWatch Copilot a question like “Where is safest to park?” or “Find a safer route home.”
+- Show a highlighted recommendation / route that avoids danger zones
+- Close by reinforcing the value: prevention, awareness, safer mobility
+
+Golden rule:
+Every feature in the demo should work flawlessly for one ideal user journey.
+
+========================
+7. UX / DESIGN PRINCIPLES
+========================
+
+The UI should feel modern, focused, and demo-friendly.
+
+Design goals:
+- clean map-first interface
+- minimal clutter
+- high visual contrast
+- obvious hierarchy
+- red = danger
+- green = safer
+- dark mode or sleek urban aesthetic is acceptable
+- simple panels and cards
+- intuitive interaction
+- no confusing menus
+
+UX rules:
+- the user should understand the product within 5–10 seconds
+- the primary CTA should be obvious
+- the AI assistant should feel embedded, not bolted on
+- the map must be the hero
+- avoid feature overload
+
+========================
+8. ENGINEERING STRATEGY
+========================
+
+Optimize for speed, reliability, and demo confidence.
+
+Preferred build philosophy:
+- simplest architecture that creates the best demo
+- high polish on a narrow scope
+- fake or stub low-value complexity
+- hardcode where appropriate
+- seed realistic local data
+- prioritize front-end polish and deterministic flows
+
+Recommended stack (adjust if needed, but keep speed in mind):
+- Frontend: Next.js or React + TypeScript
+- Styling: Tailwind CSS
+- Map: Mapbox GL JS or Azure Maps (whichever is fastest / most reliable)
+- State: lightweight local state or simple store
+- Backend: optional minimal API routes only if needed
+- Data: static seeded JSON or mock API
+- AI: simple prompt layer, mocked AI logic, or real LLM call if easy
+- Hosting: Vercel/Netlify/Azure Static Web Apps or fastest available option
+Map and visual rendering are high-priority engineering concerns.
+This is not just a functional GIS app — it is a demo-first product.
+
+Engineering must prioritize:
+- choosing a map style that looks premium and cinematic
+- making the hotspot rendering smooth and visually impressive
+- ensuring the heatmap is high contrast and readable on a projector / screen share
+- minimizing visual clutter while maximizing visual impact
+- tuning map zoom, colors, glow, opacity, and marker styling for presentation quality
+
+If tradeoffs are needed, choose stronger visual presentation over lower-value backend complexity.
+
+========================
+9. DATA MODEL (SIMPLE)
+========================
+
+Define a minimal data model that is enough for the demo:
+
+Incident:
+- id
+- type (theft / suspicious activity / report)
+- title
+- description
+- latitude
+- longitude
+- timestamp
+- riskWeight
+- neighborhood (optional)
+
+SafeRecommendation:
+- id
+- type (route / parking / zone)
+- title
+- description
+- geometry or coordinates
+- rationale
+
+CopilotPromptResult:
+- question
+- answer
+- linked hotspots
+- linked safe zones
+- linked route (optional)
+
+========================
+10. AI / COPILOT BEHAVIOR
+========================
+
+The AI feature must feel useful and productized.
+
+The assistant should:
+- answer in concise, practical language
+- reference hotspot risk or safe areas
+- give action-oriented output
+- sound confident but not overly verbose
+- be framed as safety guidance, not generic chat
+
+Acceptable MVP implementation approaches:
+Option A — mock / deterministic logic
+- If user asks for safer parking, return a nearby safer zone
+- If user asks for a safe route, show a precomputed safer route
+- If near hotspot, warn user to avoid that area
+
+Option B — LLM-backed response
+- Use a small structured prompt with current map context
+- Keep output short and operational
+- Prefer deterministic UI wiring even if an LLM is involved
+
+The AI should not feel like a general chatbot.
+It should feel like a mobility safety copilot.
+
+The AI recommendation output should also be visually reinforced on the map.
+Whenever possible, Copilot responses should trigger visible changes such as:
+- highlighted safer zones
+- emphasized avoided danger areas
+- a visually distinct safe route
+- callout cards with clear risk reasoning
+
+The AI should not only answer — it should make the map feel smarter.
+
+========================
+11. SYSTEM ARCHITECTURE EXPECTATION
+========================
+
+Provide a concise but credible architecture that matches the MVP:
+
+Expected architecture:
+- map UI
+- seeded incident data
+- hotspot visualization layer
+- user report interaction
+- recommendation logic
+- optional AI orchestration layer
+- optional minimal backend endpoints
+
+Need:
+- an architecture diagram in text form
+- component breakdown
+- data flow
+- explanation of what is real vs mocked
+- clear statement of what can scale later
+
+========================
+12. EXPECTED OUTPUTS FROM YOU
+========================
+
+Whenever I ask you for implementation help, output your work in a clean, engineering-friendly format.
+
+When starting from this master file, generate the following in order:
+
+A. Executive Overview
+Provide:
+- what the product is
+- the problem
+- the target user
+- the value proposition
+- why this is hackathon-worthy
+- the MVP definition
+- the demo strategy
+- the technical approach
+
+B. Implementation Plan
+Provide:
+- exact phases for building in one day
+- critical path
+- what can be mocked
+- what must be real
+- component-by-component task list
+- what should be done first, second, third
+- risks and mitigations
+
+C. Architecture Plan
+Provide:
+- frontend architecture
+- backend/data architecture
+- map and AI integration strategy
+- sample data schema
+- state management strategy
+- deployment plan
+
+D. Build Plan by Workstream
+Break work into:
+- frontend
+- map layer
+- report flow
+- AI/copilot
+- styling/polish
+- deployment
+- demo prep
+
+E. Prompt / AI Logic Plan
+Provide:
+- exact AI system prompt for BikeWatch Copilot
+- example inputs/outputs
+- how to wire AI to visible UI actions
+
+F. Demo Readiness Plan
+Provide:
+- exact click path for demo
+- seeded scenarios
+- what to preload
+- fallback plans if APIs fail
+- what to record for backup demo video
+
+G. Repo Scaffold
+Provide:
+- folder structure
+- key files
+- starter code plan
+- reusable component list
+
+H. Code Generation
+When asked, generate COMPLETE, runnable code for one feature at a time.
+Do not provide vague pseudo-code unless explicitly requested.
+
+The architecture must explicitly include a visual presentation layer strategy:
+- map style selection
+- hotspot rendering strategy
+- marker styling
+- safe zone / route highlight styling
+- animation / transition considerations for demo quality
+
+========================
+13. EXECUTION RULES
+========================
+
+Rules you must follow:
+- bias toward shipping
+- do not overengineer
+- prefer strong demo UX over backend purity
+- use mocked data where appropriate
+- recommend the fastest viable option
+- when uncertain, choose the approach that reduces demo risk
+- keep the app visually attractive
+- prioritize a smooth happy path
+- maintain technical credibility
+- every recommendation must support a hackathon-winning demo
+
+When making tradeoffs:
+1. demo reliability
+2. UX clarity
+3. speed to implement
+4. technical impressiveness
+5. scalability
+
+Additional execution rules:
+- visual polish is a core feature
+- the map is the hero surface of the product
+- the heatmap must be demo-quality, not just technically functional
+- if something looks generic, improve it
+- if a visual choice does not create impact, replace it
+- design for screen share, projection, and instant judge comprehension
+
+========================
+14. CURRENT ASK
+========================
+
+Start by giving me:
+1. a polished executive overview
+2. a one-day implementation plan
+3. a recommended architecture
+4. a repo/file structure
+5. the top 5 MVP tasks in priority order
+6. the exact demo flow
+7. the exact AI copilot behavior plan
+8. the biggest risks and how to avoid them
+
+
+MVP Visual Requirement — The Product Must Pop
+- The MVP must be visually striking from the first frame of the demo
+- Visual appeal is not optional; it is a core requirement
+- The map experience must immediately feel polished, modern, and impressive
+- The heatmap / hotspot layer must be one of the strongest visual elements in the product
+- The app should feel “demo-ready” and memorable, not like a generic internal tool
+- Strong visual hierarchy and map styling are part of the MVP itself, not post-MVP polish
+
+
+Visual Design Priority:
+- The UI must pop on screen during the demo
+- The map must feel premium, cinematic, and high-contrast
+- The heatmap must be visually compelling and instantly readable
+- Risk visualization should create an immediate “wow” moment
+- Default map styling should be intentionally chosen for visual drama and clarity, not left generic
+- The product should look like a strong hackathon finalist, not a rough prototype
+``
+
+Geographic Demo Scope:
+- Lock the demo to the downtown Atlanta area
+- The map should default to a polished, presentation-ready view centered on downtown Atlanta
+- Seed incidents and hotspot regions specifically around downtown Atlanta so the demo feels grounded and intentional
+- All initial UI, camera framing, and AI recommendations should assume downtown Atlanta as the first-class demo environment
+``
+
+Demo Data Constraint:2Due to the hackathon timeline and rapid iteration needs, the MVP will be powered by seeded synthetic demo data rather than scraped or live production data. This data should be realistic, internally consistent, and geographically grounded in downtown Atlanta so the demo feels credible and visually compelling.3 4Important:5- Do not design the system around live scraping as an MVP dependency6- Assume incident, hotspot, and safety data are pre-seeded for the demo7- Structure the data model so real data sources could be integrated later8- The synthetic data must be strong enough to support a polished, believable demo
+
+
+Demo Integrity Rule:
+The MVP should clearly be architected so that seeded synthetic data can later be replaced by real incident data, APIs, or scraped/public data sources without requiring a major frontend redesign.
+
+
+Then ask no clarifying questions unless absolutely necessary. Make the best assumptions and move fast.
