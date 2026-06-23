@@ -3,14 +3,19 @@ import MapView from './components/MapView';
 import CopilotDock from './components/CopilotDock';
 import ReportModal from './components/ReportModal';
 import TripPlanner from './components/TripPlanner';
-import type { Incident, TripPlan, TripPoint } from './lib/types';
-import { SEED_INCIDENTS, SEED_ROUTES, SEED_SAFE_ZONES, TRIP_POINTS, CITY } from './data/incidents';
+import type { HeatPoint, Incident, RiskModel, TripPlan, TripPoint, Zone } from './lib/types';
+import { FEATURED_REPORTS, SEED_ROUTES, SEED_SAFE_ZONES, TRIP_POINTS, CITY } from './data/incidents';
 import { runCopilot } from './lib/copilot';
 import { planTrip } from './lib/routing';
-import { computeHotspots } from './lib/geo';
+import { loadRiskData } from './lib/loadData';
 
 export default function App() {
-  const [incidents, setIncidents] = useState<Incident[]>(SEED_INCIDENTS);
+  const [realIncidents, setRealIncidents] = useState<Incident[]>([]);
+  const [userIncidents, setUserIncidents] = useState<Incident[]>([]);
+  const [heatPoints, setHeatPoints] = useState<HeatPoint[]>([]);
+  const [zones, setZones] = useState<Zone[]>([]);
+  const [model, setModel] = useState<RiskModel | null>(null);
+
   const [showHeatmap, setShowHeatmap] = useState(false);
   const [copilotOpen, setCopilotOpen] = useState(false);
 
@@ -26,6 +31,16 @@ export default function App() {
   const [avoidHotspot, setAvoidHotspot] = useState<{ lat: number; lng: number; label: string } | null>(null);
   const [mapReady, setMapReady] = useState(false);
 
+  // Load the real-data risk layer (APD pipeline output) once.
+  useEffect(() => {
+    loadRiskData().then((d) => {
+      setRealIncidents(d.incidents);
+      setHeatPoints(d.heatPoints);
+      setZones(d.zones);
+      setModel(d.model);
+    });
+  }, []);
+
   // Scan-line re-mount key — increments each time the heatmap engages
   const [scanKey, setScanKey] = useState(0);
   const prevHeat = useRef(false);
@@ -34,9 +49,14 @@ export default function App() {
     prevHeat.current = showHeatmap;
   }, [showHeatmap]);
 
-  const hotspots = useMemo(() => computeHotspots(incidents), [incidents]);
-  const theftCount = incidents.filter((i) => i.type === 'theft').length;
-  const hotspotCount = hotspots.filter((h) => h.score >= 1.5).length;
+  // Hybrid: curated bike/scooter reports on top of the real larceny sample.
+  const incidents = useMemo(
+    () => [...FEATURED_REPORTS, ...realIncidents, ...userIncidents],
+    [realIncidents, userIncidents],
+  );
+  const totalIncidents = model?.nIncidents ?? incidents.length;
+  const zoneCount = model?.nZones ?? zones.length;
+  const highRiskCount = zones.filter((z) => z.tier === 'High').length;
 
   const activeRoute = useMemo(
     () => SEED_ROUTES.find((r) => r.id === activeRouteId) ?? null,
@@ -57,7 +77,7 @@ export default function App() {
       timestamp: new Date().toISOString(),
       isNew: true,
     };
-    setIncidents((prev) => [...prev, incident]);
+    setUserIncidents((prev) => [...prev, incident]);
     setModalOpen(false);
     setModalCoords(null);
   };
@@ -93,6 +113,8 @@ export default function App() {
     <div className="relative h-full w-full overflow-hidden bg-ink">
       <MapView
         incidents={incidents}
+        heatPoints={heatPoints}
+        zones={zones}
         safeZones={SEED_SAFE_ZONES}
         activeRoute={activeRoute}
         highlightZoneId={highlightZoneId}
@@ -148,9 +170,9 @@ export default function App() {
         >
           <Clock />
           <Divider />
-          <Stat label="Incidents" value={incidents.length} tone="text-white" />
-          <Stat label="Thefts" value={theftCount} tone="text-danger" />
-          <Stat label="Hot zones" value={hotspotCount} tone="text-brand" />
+          <Stat label="Incidents" value={totalIncidents} tone="text-white" />
+          <Stat label="Zones" value={zoneCount} tone="text-danger" />
+          <Stat label="High risk" value={highRiskCount} tone="text-brand" />
           <Divider />
           <button
             onClick={() => setShowHeatmap((v) => !v)}
@@ -219,7 +241,7 @@ export default function App() {
 
       {/* ---------- Bottom-left: legend + report ---------- */}
       <div className="absolute bottom-5 left-5 z-20 flex flex-col gap-3">
-        <Legend showHeatmap={showHeatmap} />
+        <Legend showHeatmap={showHeatmap} model={model} />
         <button
           onClick={() => setReportMode((v) => !v)}
           className={`animate-bootIn flex w-fit items-center gap-2 px-4 py-2.5 text-[11px] font-bold uppercase tracking-[0.14em] transition ${
@@ -282,7 +304,7 @@ function Clock() {
   );
 }
 
-function Legend({ showHeatmap }: { showHeatmap: boolean }) {
+function Legend({ showHeatmap, model }: { showHeatmap: boolean; model: RiskModel | null }) {
   return (
     <div
       className="tac-panel animate-bootIn w-[210px] px-3.5 py-3"
@@ -310,6 +332,13 @@ function Legend({ showHeatmap }: { showHeatmap: boolean }) {
           <Row color="bg-danger" label="Theft report" />
           <Row color="bg-brand" label="Suspicious activity" />
           <Row color="bg-safe" label="Verified safe zone" />
+        </div>
+      )}
+      {model && (
+        <div className="mono mt-3 border-t border-edge pt-2.5 text-[8px] uppercase leading-relaxed tracking-[0.1em] text-muted">
+          <span className="text-brand">●</span> APD open data · {model.nIncidents.toLocaleString()} incidents · {model.window}
+          <br />
+          Poisson + KDE model · bike-theft proxy
         </div>
       )}
     </div>

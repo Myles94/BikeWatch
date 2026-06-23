@@ -96,6 +96,50 @@ export const SEED_INCIDENTS: Incident[] = RAW_INCIDENTS.map((inc, i) => ({
   imageUrl: pickImage(inc.title, i),
 }));
 
+/**
+ * Curated bike/e-scooter reports shown on top of the real APD larceny layer
+ * (the "hybrid" demo narrative). These keep rich titles + photos so the map
+ * still tells a bike-theft story while real data drives the heatmap/model.
+ */
+export const FEATURED_REPORTS: Incident[] = [
+  {
+    id: 'feat-gt', type: 'theft', title: 'Bike stolen outside library',
+    description: 'U-lock cut overnight at the Clough Commons racks at Georgia Tech.',
+    lat: 33.7745, lng: -84.3963, timestamp: hoursAgo(5), riskWeight: 0.95,
+    neighborhood: 'Georgia Tech', imageUrl: '/reports/bike-1.jpg', source: 'featured', isNew: true,
+  },
+  {
+    id: 'feat-mid', type: 'theft', title: 'E-scooter taken near MARTA',
+    description: 'Locked e-scooter stripped and stolen outside the Midtown station.',
+    lat: 33.7815, lng: -84.3832, timestamp: hoursAgo(9), riskWeight: 0.9,
+    neighborhood: 'Midtown', imageUrl: '/reports/scooter-1.jpg', source: 'featured',
+  },
+  {
+    id: 'feat-dt', type: 'theft', title: 'Commuter bike grabbed at Five Points',
+    description: 'Daytime theft near the Downtown transit hub during rush hour.',
+    lat: 33.7537, lng: -84.3905, timestamp: hoursAgo(13), riskWeight: 0.82,
+    neighborhood: 'Downtown', imageUrl: '/reports/bike-2.jpg', source: 'featured',
+  },
+  {
+    id: 'feat-o4w', type: 'theft', title: 'Bike stolen near Ponce City Market',
+    description: 'Taken from a street rack on the BeltLine Eastside Trail.',
+    lat: 33.7646, lng: -84.3656, timestamp: hoursAgo(20), riskWeight: 0.72,
+    neighborhood: 'Old Fourth Ward', imageUrl: '/reports/bike-3.jpg', source: 'featured',
+  },
+  {
+    id: 'feat-l5p', type: 'suspicious', title: 'Person testing locks',
+    description: 'Individual seen checking multiple bikes on Euclid Ave in Little Five Points.',
+    lat: 33.7639, lng: -84.3496, timestamp: hoursAgo(4), riskWeight: 0.5,
+    neighborhood: 'Little Five Points', imageUrl: '/reports/bike-1.jpg', source: 'featured',
+  },
+  {
+    id: 'feat-home', type: 'theft', title: 'E-bike taken from porch',
+    description: 'Battery-assist bike stolen from a front porch in Home Park.',
+    lat: 33.7807, lng: -84.4036, timestamp: hoursAgo(28), riskWeight: 0.68,
+    neighborhood: 'Home Park', imageUrl: '/reports/scooter-1.jpg', source: 'featured',
+  },
+];
+
 export const SEED_SAFE_ZONES: SafeZone[] = [
   {
     id: 'sz-atlantic',

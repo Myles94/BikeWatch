@@ -1,12 +1,13 @@
 import { useEffect, useRef } from 'react';
 import maplibregl from 'maplibre-gl';
-import type { Incident, SafeRoute, SafeZone, TripPlan } from '../lib/types';
+import type { HeatPoint, Incident, SafeRoute, SafeZone, TripPlan, Zone } from '../lib/types';
 import { CITY } from '../data/incidents';
 import { DARK_STYLE } from '../lib/mapStyle';
-import { computeZoneStats } from '../lib/geo';
 
 interface MapViewProps {
   incidents: Incident[];
+  heatPoints: HeatPoint[];
+  zones: Zone[];
   safeZones: SafeZone[];
   activeRoute: SafeRoute | null;
   highlightZoneId: string | null;
@@ -17,13 +18,16 @@ interface MapViewProps {
   onReady: () => void;
 }
 
-function incidentFeatureCollection(incidents: Incident[]) {
+// Top-N risk zones to annotate in heatmap mode (keeps the overlay uncluttered).
+const ZONE_CARDS = 7;
+
+function heatFeatureCollection(points: HeatPoint[]) {
   return {
     type: 'FeatureCollection' as const,
-    features: incidents.map((i) => ({
+    features: points.map((p) => ({
       type: 'Feature' as const,
-      properties: { weight: i.riskWeight, type: i.type },
-      geometry: { type: 'Point' as const, coordinates: [i.lng, i.lat] },
+      properties: { w: p.w },
+      geometry: { type: 'Point' as const, coordinates: [p.lng, p.lat] },
     })),
   };
 }
@@ -65,6 +69,8 @@ function popupHtml(inc: Incident) {
 
 export default function MapView({
   incidents,
+  heatPoints,
+  zones,
   safeZones,
   activeRoute,
   highlightZoneId,
@@ -112,7 +118,7 @@ export default function MapView({
     map.on('load', () => {
       map.addSource('incidents', {
         type: 'geojson',
-        data: incidentFeatureCollection([]),
+        data: heatFeatureCollection([]),
       });
       map.addSource('safezones', {
         type: 'geojson',
@@ -127,7 +133,7 @@ export default function MapView({
         maxzoom: 18,
         layout: { visibility: 'none' },
         paint: {
-          'heatmap-weight': ['interpolate', ['linear'], ['get', 'weight'], 0, 0.5, 1, 1.6],
+          'heatmap-weight': ['interpolate', ['linear'], ['get', 'w'], 0, 0.4, 1, 1.7],
           'heatmap-intensity': ['interpolate', ['linear'], ['zoom'], 10, 2, 13, 3, 16, 4.4],
           'heatmap-color': [
             'interpolate',
@@ -243,15 +249,23 @@ export default function MapView({
     };
   }, []);
 
-  // Update heatmap data + incident markers (markers always visible; dim under heatmap)
+  // Heatmap source <- real KDE-weighted risk points
   useEffect(() => {
     const map = mapRef.current;
     if (!map) return;
     const apply = () => {
       const src = map.getSource('incidents') as maplibregl.GeoJSONSource | undefined;
-      if (!src) return;
-      src.setData(incidentFeatureCollection(incidents));
+      if (src) src.setData(heatFeatureCollection(heatPoints));
+    };
+    if (loadedRef.current) apply();
+    else map.once('bikewatch:ready', apply);
+  }, [heatPoints]);
 
+  // Incident markers (curated + sampled real reports)
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map) return;
+    const apply = () => {
       incidentMarkers.current.forEach((m) => m.remove());
       incidentMarkers.current = incidents.map((inc) => {
         const el = document.createElement('div');
@@ -272,7 +286,7 @@ export default function MapView({
     else map.once('bikewatch:ready', apply);
   }, [incidents, showHeatmap]);
 
-  // Toggle heatmap layers + zone analytics overlays
+  // Toggle heatmap layers + zone analytics overlays (real model-scored zones)
   useEffect(() => {
     const map = mapRef.current;
     if (!map) return;
@@ -284,8 +298,7 @@ export default function MapView({
       analyticsMarkers.current.forEach((m) => m.remove());
       analyticsMarkers.current = [];
       if (!showHeatmap) return;
-      const zones = computeZoneStats(incidents);
-      analyticsMarkers.current = zones.map((z) => {
+      analyticsMarkers.current = zones.slice(0, ZONE_CARDS).map((z) => {
         const el = document.createElement('div');
         el.className = `zone-analytics tier-${z.tier.toLowerCase()}`;
         const pct = Math.round(z.stolenProbability * 100);
@@ -300,7 +313,7 @@ export default function MapView({
             <span class="za-prob-label">predicted theft odds</span>
           </div>
           <div class="za-bar"><span style="width:${pct}%"></span></div>
-          <div class="za-meta">${z.count} reports · ${z.theftCount} thefts</div>`;
+          <div class="za-meta">${z.count} reports · ${z.tier} risk</div>`;
         return new maplibregl.Marker({ element: el, anchor: 'bottom', offset: [0, -16] })
           .setLngLat([z.lng, z.lat])
           .addTo(map);
@@ -308,7 +321,7 @@ export default function MapView({
     };
     if (loadedRef.current) apply();
     else map.once('bikewatch:ready', apply);
-  }, [showHeatmap, incidents]);
+  }, [showHeatmap, zones]);
 
   // Safe zone markers + safe-zone heatmap data
   useEffect(() => {

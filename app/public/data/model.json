@@ -1,0 +1,21 @@
+{
+  "method": "Gaussian KDE risk surface + Poisson regression (gradient ascent)",
+  "proxy": "NIBRS 'All Other Larceny' (bicycle theft has no NIBRS category)",
+  "source": "Atlanta PD open data \u2014 OpenDataWebsite_Crime_view",
+  "window": "2026 YTD",
+  "nIncidents": 1642,
+  "nZones": 82,
+  "features": [
+    "intercept",
+    "log_density",
+    "night_share",
+    "weekend_share"
+  ],
+  "coefficients": {
+    "intercept": 2.5202,
+    "log_density": 0.6606,
+    "night_share": -0.092,
+    "weekend_share": 0.0591
+  },
+  "kdeBandwidthDeg": 0.004
+}
