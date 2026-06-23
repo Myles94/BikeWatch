@@ -159,7 +159,7 @@ export default function App() {
           className={`flex w-fit items-center gap-2 rounded-xl px-4 py-2.5 text-[13px] font-semibold transition ${
             reportMode
               ? 'border border-brand/50 bg-brand/10 text-brand'
-              : 'bg-danger text-white shadow-[0_8px_24px_rgba(239,68,68,0.35)] hover:bg-red-600'
+              : 'bg-danger text-white hover:bg-red-600'
           }`}
         >
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round"><path d="M12 5v14M5 12h14" /></svg>
@@ -201,6 +201,9 @@ function Legend({ showHeatmap }: { showHeatmap: boolean }) {
           <div className="mt-1 flex justify-between text-[10px] text-slate-500">
             <span>Low</span>
             <span>High</span>
+          </div>
+          <div className="mt-2.5 border-t border-white/8 pt-2">
+            <Row color="bg-safe" label="Safe-zone density" />
           </div>
         </>
       ) : (

@@ -40,13 +40,13 @@ function popupHtml(inc: Incident) {
       ? '<span style="color:#fca5a5">Theft</span>'
       : '<span style="color:#fcd34d">Suspicious</span>';
   const img = inc.imageUrl
-    ? `<img src="${inc.imageUrl}" alt="" style="width:100%;height:120px;object-fit:cover;border-radius:10px;margin-bottom:8px;display:block" />`
+    ? `<img src="${inc.imageUrl}" alt="" style="width:100%;height:168px;object-fit:cover;border-radius:11px;margin-bottom:10px;display:block" />`
     : '';
-  return `<div style="width:212px">
+  return `<div style="width:280px">
     ${img}
-    <div style="font-weight:600;font-size:13px;color:#f1f5ff;margin-bottom:3px;line-height:1.25">${inc.title}</div>
-    <div style="font-size:12px;color:#c7d2ec;margin-bottom:8px;line-height:1.4">${inc.description}</div>
-    <div style="display:flex;justify-content:space-between;font-size:11px;color:#93a3c9">
+    <div style="font-weight:600;font-size:15px;color:#f1f5ff;margin-bottom:5px;line-height:1.25">${inc.title}</div>
+    <div style="font-size:13px;color:#c7d2ec;margin-bottom:10px;line-height:1.5">${inc.description}</div>
+    <div style="display:flex;justify-content:space-between;font-size:12px;color:#93a3c9">
       <span>${inc.neighborhood ?? ''}</span>
       <span>${tag} · ${timeAgo(inc.timestamp)}</span>
     </div>
@@ -84,6 +84,12 @@ export default function MapView({
       style: DARK_STYLE,
       center: CITY.center,
       zoom: CITY.zoom,
+      minZoom: 10,
+      maxZoom: 18,
+      maxBounds: [
+        [-84.95, 33.42], // SW — greater Atlanta
+        [-83.95, 34.12], // NE
+      ],
       pitch: 50,
       bearing: -18,
       attributionControl: false,
@@ -96,31 +102,60 @@ export default function MapView({
         type: 'geojson',
         data: incidentFeatureCollection([]),
       });
+      map.addSource('safezones', {
+        type: 'geojson',
+        data: { type: 'FeatureCollection', features: [] },
+      });
 
       // Advanced shaded heatmap (hidden until toggled)
       map.addLayer({
         id: 'incident-heat',
         type: 'heatmap',
         source: 'incidents',
-        maxzoom: 17,
+        maxzoom: 18,
         layout: { visibility: 'none' },
         paint: {
-          'heatmap-weight': ['interpolate', ['linear'], ['get', 'weight'], 0, 0.35, 1, 1.4],
-          'heatmap-intensity': ['interpolate', ['linear'], ['zoom'], 10, 1.5, 13, 2.4, 16, 3.8],
+          'heatmap-weight': ['interpolate', ['linear'], ['get', 'weight'], 0, 0.5, 1, 1.6],
+          'heatmap-intensity': ['interpolate', ['linear'], ['zoom'], 10, 2, 13, 3, 16, 4.4],
           'heatmap-color': [
             'interpolate',
             ['linear'],
             ['heatmap-density'],
             0, 'rgba(8,12,24,0)',
-            0.12, 'rgba(34,211,238,0.4)',
-            0.28, 'rgba(56,189,248,0.6)',
-            0.45, 'rgba(250,204,21,0.78)',
-            0.62, 'rgba(249,115,22,0.88)',
-            0.8, 'rgba(239,68,68,0.94)',
+            0.1, 'rgba(34,211,238,0.35)',
+            0.25, 'rgba(56,189,248,0.6)',
+            0.42, 'rgba(250,204,21,0.8)',
+            0.6, 'rgba(249,115,22,0.9)',
+            0.8, 'rgba(239,68,68,0.95)',
             1, 'rgba(190,18,60,1)',
           ],
-          'heatmap-radius': ['interpolate', ['linear'], ['zoom'], 10, 28, 13, 58, 16, 92],
-          'heatmap-opacity': ['interpolate', ['linear'], ['zoom'], 14, 0.95, 16.5, 0.55],
+          'heatmap-radius': ['interpolate', ['linear'], ['zoom'], 10, 44, 13, 95, 16, 150],
+          'heatmap-opacity': ['interpolate', ['linear'], ['zoom'], 14, 0.95, 17, 0.6],
+        },
+      });
+
+      // Safe-zone heatmap (green) — shown alongside the risk heatmap
+      map.addLayer({
+        id: 'safezone-heat',
+        type: 'heatmap',
+        source: 'safezones',
+        maxzoom: 18,
+        layout: { visibility: 'none' },
+        paint: {
+          'heatmap-weight': 1.4,
+          'heatmap-intensity': ['interpolate', ['linear'], ['zoom'], 10, 1.6, 16, 3.6],
+          'heatmap-color': [
+            'interpolate',
+            ['linear'],
+            ['heatmap-density'],
+            0, 'rgba(8,12,24,0)',
+            0.2, 'rgba(16,185,129,0.35)',
+            0.45, 'rgba(34,197,94,0.6)',
+            0.7, 'rgba(74,222,128,0.8)',
+            1, 'rgba(134,239,172,0.92)',
+          ],
+          'heatmap-radius': ['interpolate', ['linear'], ['zoom'], 10, 40, 13, 80, 16, 130],
+          'heatmap-opacity': ['interpolate', ['linear'], ['zoom'], 14, 0.85, 17, 0.5],
         },
       });
 
@@ -176,7 +211,7 @@ export default function MapView({
           inc.isNew ? 'new' : ''
         }`;
         el.style.opacity = showHeatmap ? '0.45' : '1';
-        const popup = new maplibregl.Popup({ offset: 16, closeButton: true, maxWidth: '240px' }).setHTML(
+        const popup = new maplibregl.Popup({ offset: 16, closeButton: true, maxWidth: '320px' }).setHTML(
           popupHtml(inc),
         );
         return new maplibregl.Marker({ element: el })
@@ -189,14 +224,15 @@ export default function MapView({
     else map.once('bikewatch:ready', apply);
   }, [incidents, showHeatmap]);
 
-  // Toggle heatmap layer + zone analytics overlays
+  // Toggle heatmap layers + zone analytics overlays
   useEffect(() => {
     const map = mapRef.current;
     if (!map) return;
     const apply = () => {
-      if (map.getLayer('incident-heat')) {
-        map.setLayoutProperty('incident-heat', 'visibility', showHeatmap ? 'visible' : 'none');
-      }
+      const vis = showHeatmap ? 'visible' : 'none';
+      if (map.getLayer('incident-heat')) map.setLayoutProperty('incident-heat', 'visibility', vis);
+      if (map.getLayer('safezone-heat')) map.setLayoutProperty('safezone-heat', 'visibility', vis);
+
       analyticsMarkers.current.forEach((m) => m.remove());
       analyticsMarkers.current = [];
       if (!showHeatmap) return;
@@ -204,11 +240,20 @@ export default function MapView({
       analyticsMarkers.current = zones.map((z) => {
         const el = document.createElement('div');
         el.className = `zone-analytics tier-${z.tier.toLowerCase()}`;
+        const pct = Math.round(z.stolenProbability * 100);
         el.innerHTML = `
-          <div class="za-tier">${z.tier} risk</div>
-          <div class="za-name">${z.label}</div>
+          <div class="za-head">
+            <span class="za-dot"></span>
+            <span class="za-tier">${z.tier}</span>
+            <span class="za-name">${z.label}</span>
+          </div>
+          <div class="za-prob">
+            <span class="za-pct">${pct}%</span>
+            <span class="za-prob-label">predicted theft odds</span>
+          </div>
+          <div class="za-bar"><span style="width:${pct}%"></span></div>
           <div class="za-meta">${z.count} reports · ${z.theftCount} thefts</div>`;
-        return new maplibregl.Marker({ element: el, anchor: 'center' })
+        return new maplibregl.Marker({ element: el, anchor: 'bottom', offset: [0, -16] })
           .setLngLat([z.lng, z.lat])
           .addTo(map);
       });
@@ -217,11 +262,22 @@ export default function MapView({
     else map.once('bikewatch:ready', apply);
   }, [showHeatmap, incidents]);
 
-  // Safe zone markers
+  // Safe zone markers + safe-zone heatmap data
   useEffect(() => {
     const map = mapRef.current;
     if (!map) return;
     const apply = () => {
+      const src = map.getSource('safezones') as maplibregl.GeoJSONSource | undefined;
+      if (src) {
+        src.setData({
+          type: 'FeatureCollection',
+          features: safeZones.map((z) => ({
+            type: 'Feature',
+            properties: {},
+            geometry: { type: 'Point', coordinates: [z.lng, z.lat] },
+          })),
+        });
+      }
       zoneMarkers.current.forEach((m) => m.remove());
       zoneMarkers.current = safeZones.map((z) => {
         const el = document.createElement('div');

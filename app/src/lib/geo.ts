@@ -31,10 +31,15 @@ export interface ZoneStat extends Hotspot {
   theftCount: number;
   avg: number;
   tier: RiskTier;
+  stolenProbability: number; // 0..1 — predicted likelihood an unattended bike is stolen
 }
 
 const tierFor = (avg: number): RiskTier =>
   avg >= 0.7 ? 'High' : avg >= 0.45 ? 'Medium' : 'Low';
+
+/** Pseudo-model output: predicted theft probability from risk + incident density. */
+const stolenProbabilityFor = (avg: number, count: number): number =>
+  Math.min(0.97, Math.max(0.05, 0.32 + 0.46 * avg + 0.028 * count));
 
 /** Group incidents into hotspots by neighborhood, weighted by recency + riskWeight. */
 export function computeHotspots(incidents: Incident[]): Hotspot[] {
@@ -72,7 +77,17 @@ export function computeZoneStats(incidents: Incident[], minCount = 2): ZoneStat[
     const score = arr.reduce((s, i) => s + i.riskWeight, 0);
     const avg = score / arr.length;
     const theftCount = arr.filter((i) => i.type === 'theft').length;
-    zones.push({ lat, lng, label, score, count: arr.length, theftCount, avg, tier: tierFor(avg) });
+    zones.push({
+      lat,
+      lng,
+      label,
+      score,
+      count: arr.length,
+      theftCount,
+      avg,
+      tier: tierFor(avg),
+      stolenProbability: stolenProbabilityFor(avg, arr.length),
+    });
   });
   return zones.sort((a, b) => b.score - a.score);
 }
