@@ -2,9 +2,11 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import MapView from './components/MapView';
 import CopilotDock from './components/CopilotDock';
 import ReportModal from './components/ReportModal';
-import type { Incident } from './lib/types';
-import { SEED_INCIDENTS, SEED_ROUTES, SEED_SAFE_ZONES, CITY } from './data/incidents';
+import TripPlanner from './components/TripPlanner';
+import type { Incident, TripPlan, TripPoint } from './lib/types';
+import { SEED_INCIDENTS, SEED_ROUTES, SEED_SAFE_ZONES, TRIP_POINTS, CITY } from './data/incidents';
 import { runCopilot } from './lib/copilot';
+import { planTrip } from './lib/routing';
 import { computeHotspots } from './lib/geo';
 
 export default function App() {
@@ -15,6 +17,9 @@ export default function App() {
   const [reportMode, setReportMode] = useState(false);
   const [modalCoords, setModalCoords] = useState<{ lat: number; lng: number } | null>(null);
   const [modalOpen, setModalOpen] = useState(false);
+
+  const [tripOpen, setTripOpen] = useState(false);
+  const [tripPlan, setTripPlan] = useState<TripPlan | null>(null);
 
   const [activeRouteId, setActiveRouteId] = useState<string | null>(null);
   const [highlightZoneId, setHighlightZoneId] = useState<string | null>(null);
@@ -78,6 +83,12 @@ export default function App() {
     return res;
   };
 
+  const handlePlanTrip = (origin: TripPoint, destination: TripPoint) => {
+    setTripPlan(planTrip(origin, destination, incidents));
+  };
+  const handleSelectRoute = (id: 'safe' | 'direct') =>
+    setTripPlan((p) => (p ? { ...p, selectedId: id } : p));
+  const handleClearTrip = () => setTripPlan(null);
   return (
     <div className="relative h-full w-full overflow-hidden bg-ink">
       <MapView
@@ -87,6 +98,7 @@ export default function App() {
         highlightZoneId={highlightZoneId}
         avoidHotspot={avoidHotspot}
         showHeatmap={showHeatmap}
+        trip={tripPlan}
         onMapClick={handleMapClick}
         onReady={() => setMapReady(true)}
       />
@@ -153,6 +165,20 @@ export default function App() {
             </svg>
             Heatmap
           </button>
+          <Divider />
+          <button
+            onClick={() => setTripOpen((v) => !v)}
+            className={`flex items-center gap-2 px-4 text-[11px] font-bold uppercase tracking-[0.14em] transition ${
+              tripOpen
+                ? 'bg-brand text-[#1a1300]'
+                : 'text-slate-300 hover:bg-white/5 hover:text-white'
+            }`}
+          >
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M4 17h4l3-10 3 14 3-9h4" />
+            </svg>
+            Route
+          </button>
         </div>
       </header>
 
@@ -179,6 +205,17 @@ export default function App() {
           </div>
         </div>
       )}
+
+      {/* ---------- Trip planner ---------- */}
+      <TripPlanner
+        open={tripOpen}
+        onClose={() => setTripOpen(false)}
+        points={TRIP_POINTS}
+        trip={tripPlan}
+        onPlan={handlePlanTrip}
+        onSelect={handleSelectRoute}
+        onClear={handleClearTrip}
+      />
 
       {/* ---------- Bottom-left: legend + report ---------- */}
       <div className="absolute bottom-5 left-5 z-20 flex flex-col gap-3">

@@ -176,6 +176,26 @@ body {
   color: var(--text);
 }
 
+/* ---------- Trip routing endpoints (sharp tactical pins) ---------- */
+.trip-endpoint {
+  width: 24px;
+  height: 24px;
+  display: grid;
+  place-items: center;
+  background: #0a0d15;
+  border: 1px solid var(--signal);
+  font-family: 'JetBrains Mono', ui-monospace, monospace;
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--signal);
+  box-shadow: 0 0 0 1px rgba(255, 176, 0, 0.25), 0 4px 14px rgba(0, 0, 0, 0.6);
+}
+.trip-endpoint.dest {
+  border-color: var(--safe);
+  color: var(--safe);
+  box-shadow: 0 0 0 1px rgba(33, 208, 122, 0.25), 0 4px 14px rgba(0, 0, 0, 0.6);
+}
+
 /* ---------- Incident markers (rounded — the one place curves are allowed) ---------- */
 .incident-marker {
   width: 13px;

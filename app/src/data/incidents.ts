@@ -1,4 +1,4 @@
-import type { Incident, SafeRoute, SafeZone } from '../lib/types';
+import type { Incident, SafeRoute, SafeZone, TripPoint } from '../lib/types';
 
 // Demo city: Atlanta, GA
 export const CITY = {
@@ -139,4 +139,23 @@ export const SEED_ROUTES: SafeRoute[] = [
       [-84.3531, 33.7641],
     ],
   },
+];
+
+/**
+ * Preset origins/destinations for the risk-aware trip planner. First entry is
+ * the user's default origin; the rest are common Atlanta destinations.
+ */
+export const TRIP_POINTS: TripPoint[] = [
+  { id: 'tp-you', label: 'Your location', lat: CITY.center[1], lng: CITY.center[0] },
+  { id: 'tp-gt', label: 'Georgia Tech', lat: 33.7756, lng: -84.3963 },
+  { id: 'tp-mid', label: 'Midtown', lat: 33.7815, lng: -84.3832 },
+  { id: 'tp-dt', label: 'Downtown / Five Points', lat: 33.7537, lng: -84.3905 },
+  { id: 'tp-o4w', label: 'Old Fourth Ward', lat: 33.7646, lng: -84.3656 },
+  { id: 'tp-l5p', label: 'Little Five Points', lat: 33.7639, lng: -84.3496 },
+  { id: 'tp-pcm', label: 'Ponce City Market', lat: 33.7726, lng: -84.3654 },
+  { id: 'tp-atl', label: 'Atlantic Station', lat: 33.7925, lng: -84.3969 },
+  { id: 'tp-cent', label: 'Centennial Park', lat: 33.7603, lng: -84.3933 },
+  { id: 'tp-grant', label: 'Grant Park', lat: 33.7385, lng: -84.3702 },
+  { id: 'tp-buck', label: 'Buckhead', lat: 33.8484, lng: -84.3671 },
+  { id: 'tp-west', label: 'West End', lat: 33.7352, lng: -84.4136 },
 ];

@@ -45,3 +45,35 @@ export interface SafeRoute {
   description: string;
   coordinates: [number, number][]; // [lng, lat]
 }
+
+// ---- Risk-aware trip routing ----
+export interface TripPoint {
+  id: string;
+  label: string;
+  lat: number;
+  lng: number;
+}
+
+export interface TripEndpoint {
+  label: string;
+  lat: number;
+  lng: number;
+}
+
+export interface RouteOption {
+  id: 'safe' | 'direct';
+  kind: 'safe' | 'direct';
+  label: string;
+  coordinates: [number, number][]; // [lng, lat]
+  distanceKm: number;
+  etaMin: number;
+  safetyScore: number; // 0..100
+  hotspotsPassed: number;
+}
+
+export interface TripPlan {
+  origin: TripEndpoint;
+  destination: TripEndpoint;
+  options: RouteOption[]; // [safe, direct]
+  selectedId: 'safe' | 'direct';
+}

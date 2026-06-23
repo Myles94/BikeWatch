@@ -1,6 +1,6 @@
 import { useEffect, useRef } from 'react';
 import maplibregl from 'maplibre-gl';
-import type { Incident, SafeRoute, SafeZone } from '../lib/types';
+import type { Incident, SafeRoute, SafeZone, TripPlan } from '../lib/types';
 import { CITY } from '../data/incidents';
 import { DARK_STYLE } from '../lib/mapStyle';
 import { computeZoneStats } from '../lib/geo';
@@ -12,6 +12,7 @@ interface MapViewProps {
   highlightZoneId: string | null;
   avoidHotspot: { lat: number; lng: number; label: string } | null;
   showHeatmap: boolean;
+  trip: TripPlan | null;
   onMapClick: (lng: number, lat: number) => void;
   onReady: () => void;
 }
@@ -69,6 +70,7 @@ export default function MapView({
   highlightZoneId,
   avoidHotspot,
   showHeatmap,
+  trip,
   onMapClick,
   onReady,
 }: MapViewProps) {
@@ -77,6 +79,7 @@ export default function MapView({
   const incidentMarkers = useRef<maplibregl.Marker[]>([]);
   const zoneMarkers = useRef<maplibregl.Marker[]>([]);
   const analyticsMarkers = useRef<maplibregl.Marker[]>([]);
+  const tripMarkers = useRef<maplibregl.Marker[]>([]);
   const avoidMarker = useRef<maplibregl.Marker | null>(null);
   const loadedRef = useRef(false);
 
@@ -186,6 +189,42 @@ export default function MapView({
         source: 'route',
         layout: { 'line-cap': 'round', 'line-join': 'round' },
         paint: { 'line-color': '#ffc94d', 'line-width': 3.5 },
+      });
+
+      // Trip planner: direct (dashed, risk-tinted) + safe (amber) routes
+      map.addSource('trip-direct', {
+        type: 'geojson',
+        data: { type: 'FeatureCollection', features: [] },
+      });
+      map.addSource('trip-safe', {
+        type: 'geojson',
+        data: { type: 'FeatureCollection', features: [] },
+      });
+      map.addLayer({
+        id: 'trip-direct-line',
+        type: 'line',
+        source: 'trip-direct',
+        layout: { 'line-cap': 'round', 'line-join': 'round' },
+        paint: {
+          'line-color': '#ff6b6b',
+          'line-width': 2.5,
+          'line-opacity': 0.5,
+          'line-dasharray': [2, 2],
+        },
+      });
+      map.addLayer({
+        id: 'trip-safe-glow',
+        type: 'line',
+        source: 'trip-safe',
+        layout: { 'line-cap': 'round', 'line-join': 'round' },
+        paint: { 'line-color': '#ffb000', 'line-width': 16, 'line-blur': 12, 'line-opacity': 0.3 },
+      });
+      map.addLayer({
+        id: 'trip-safe-line',
+        type: 'line',
+        source: 'trip-safe',
+        layout: { 'line-cap': 'round', 'line-join': 'round' },
+        paint: { 'line-color': '#ffc94d', 'line-width': 4 },
       });
 
       loadedRef.current = true;
@@ -370,6 +409,81 @@ export default function MapView({
     if (loadedRef.current) fly();
     else map.once('bikewatch:ready', fly);
   }, [avoidHotspot]);
+
+  // Trip planner: render direct + safe routes, O/D markers, emphasize selection
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map) return;
+    const lineFC = (coords: [number, number][]) => ({
+      type: 'FeatureCollection' as const,
+      features: coords.length
+        ? [
+            {
+              type: 'Feature' as const,
+              properties: {},
+              geometry: { type: 'LineString' as const, coordinates: coords },
+            },
+          ]
+        : [],
+    });
+    const apply = () => {
+      const directSrc = map.getSource('trip-direct') as maplibregl.GeoJSONSource | undefined;
+      const safeSrc = map.getSource('trip-safe') as maplibregl.GeoJSONSource | undefined;
+      if (!directSrc || !safeSrc) return;
+
+      tripMarkers.current.forEach((m) => m.remove());
+      tripMarkers.current = [];
+
+      if (!trip) {
+        directSrc.setData(lineFC([]));
+        safeSrc.setData(lineFC([]));
+        return;
+      }
+
+      const safe = trip.options.find((o) => o.kind === 'safe');
+      const direct = trip.options.find((o) => o.kind === 'direct');
+      safeSrc.setData(lineFC(safe?.coordinates ?? []));
+      directSrc.setData(lineFC(direct?.coordinates ?? []));
+
+      const safeSel = trip.selectedId === 'safe';
+      if (map.getLayer('trip-safe-line')) {
+        map.setPaintProperty('trip-safe-line', 'line-width', safeSel ? 4.5 : 2.5);
+        map.setPaintProperty('trip-safe-line', 'line-opacity', safeSel ? 1 : 0.4);
+      }
+      if (map.getLayer('trip-safe-glow')) {
+        map.setPaintProperty('trip-safe-glow', 'line-opacity', safeSel ? 0.32 : 0.1);
+      }
+      if (map.getLayer('trip-direct-line')) {
+        map.setPaintProperty('trip-direct-line', 'line-width', safeSel ? 2.5 : 3.8);
+        map.setPaintProperty('trip-direct-line', 'line-opacity', safeSel ? 0.45 : 0.95);
+      }
+
+      const makeEndpoint = (label: string, isDest: boolean, lat: number, lng: number) => {
+        const el = document.createElement('div');
+        el.className = `trip-endpoint ${isDest ? 'dest' : ''}`;
+        el.textContent = label;
+        return new maplibregl.Marker({ element: el }).setLngLat([lng, lat]).addTo(map);
+      };
+      tripMarkers.current = [
+        makeEndpoint('A', false, trip.origin.lat, trip.origin.lng),
+        makeEndpoint('B', true, trip.destination.lat, trip.destination.lng),
+      ];
+
+      const coords = [
+        ...(safe?.coordinates ?? []),
+        ...(direct?.coordinates ?? []),
+      ];
+      if (coords.length) {
+        const bounds = coords.reduce(
+          (b, c) => b.extend(c as [number, number]),
+          new maplibregl.LngLatBounds(coords[0], coords[0]),
+        );
+        map.fitBounds(bounds, { padding: { top: 120, bottom: 90, left: 330, right: 110 }, duration: 1200, pitch: 48 });
+      }
+    };
+    if (loadedRef.current) apply();
+    else map.once('bikewatch:ready', apply);
+  }, [trip]);
 
   return <div ref={containerRef} className="h-full w-full" />;
 }
