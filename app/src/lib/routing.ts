@@ -4,7 +4,7 @@ import { haversineKm } from './geo';
 type LngLat = [number, number];
 
 // Public OSRM demo (keyless, CORS-enabled). Driving profile used as the road
-// network — bikes share most streets; ETA is recomputed at cycling speed.
+// network - bikes share most streets; ETA is recomputed at cycling speed.
 const OSRM = 'https://router.project-osrm.org/route/v1/driving/';
 const BIKE_KMH = 15;
 const ZONE_SIGMA = 0.006; // ~660 m influence radius for the zone risk field
@@ -192,7 +192,7 @@ export async function planTrip(
   const dKm = Math.round((safe.distanceKm - fast.distanceKm) * 10) / 10;
 
   fast.explanation = fast.highRiskZones.length
-    ? `Quickest route, but it passes through ${joinZones(fast._zones)} — ${
+    ? `Quickest route, but it passes through ${joinZones(fast._zones)} - ${
         fast.highRiskZones.length
       } high-theft ${fast.highRiskZones.length === 1 ? 'zone' : 'zones'}.`
     : 'Quickest route, and it already stays clear of the top theft zones.';

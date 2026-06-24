@@ -31,7 +31,7 @@ export interface ZoneStat extends Hotspot {
   theftCount: number;
   avg: number;
   tier: RiskTier;
-  stolenProbability: number; // 0..1 — predicted likelihood an unattended bike is stolen
+  stolenProbability: number; // 0..1 - predicted likelihood an unattended bike is stolen
 }
 
 const tierFor = (avg: number): RiskTier =>
@@ -114,7 +114,7 @@ const REPORT_RING: ReadonlyArray<readonly [number, number]> = [
 /**
  * Turns incident markers (curated FEATURED_REPORTS + user reports) into KDE
  * heat-points so every dot sits inside a real hotspot blob and a freshly
- * reported pin visibly intensifies the heatmap. APD markers are skipped — they
+ * reported pin visibly intensifies the heatmap. APD markers are skipped - they
  * already ARE heat-points emitted by the pipeline, so re-adding them would
  * double-count. Each report blooms into a center point plus a soft ring so a
  * lone report still reads as a rounded hotspot rather than a faint speck.
@@ -138,8 +138,8 @@ export function reportHeatPoints(incidents: Incident[]): HeatPoint[] {
 const MAX_ANCHOR_SHIFT_DEG = 0.012;
 
 /**
- * Re-anchors each zone to the weighted centroid of the heat-points nearest it —
- * i.e. the bright core of its heatmap blob — instead of the plain geographic
+ * Re-anchors each zone to the weighted centroid of the heat-points nearest it -
+ * i.e. the bright core of its heatmap blob - instead of the plain geographic
  * mean of incidents. This keeps zone-analytics cards (and copilot fly-to
  * targets) pinned to the actual hotspot rather than drifting off to one side.
  * The shift is clamped so sparse/edge zones never jump to a neighbor's blob.

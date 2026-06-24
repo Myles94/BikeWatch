@@ -3,13 +3,13 @@ import type { StyleSpecification } from 'maplibre-gl';
 /**
  * Custom cinematic dark basemap for BikeWatch.
  *
- * Uses OpenFreeMap (https://openfreemap.org) — fully free, no API key, no rate
- * limits — with the OpenMapTiles vector schema. We hand-tune the paint so the
+ * Uses OpenFreeMap (https://openfreemap.org) - fully free, no API key, no rate
+ * limits - with the OpenMapTiles vector schema. We hand-tune the paint so the
  * city geography reads clearly against a deep navy base: visible water, parks,
  * 3D building extrusions, a strong road hierarchy, and high-contrast labels.
  *
  * To swap in a premium provider later, point `OPENMAPTILES` at another tile
- * source (e.g. via an env token) — the layer styling stays the same.
+ * source (e.g. via an env token) - the layer styling stays the same.
  */
 
 const OFM = 'https://tiles.openfreemap.org';

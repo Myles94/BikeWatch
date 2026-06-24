@@ -54,7 +54,7 @@ export default function ReportModal({ open, coords, onClose, onSubmit }: ReportM
       title: title.trim() || DEFAULT_TITLE[type],
       description:
         description.trim() ||
-        (isSighting ? 'Spotted via BikeWatch — keeping an eye out.' : 'Reported via BikeWatch.'),
+        (isSighting ? 'Spotted via BikeWatch - keeping an eye out.' : 'Reported via BikeWatch.'),
       lat: coords.lat,
       lng: coords.lng,
       riskWeight: type === 'theft' ? 0.9 : type === 'suspicious' ? 0.55 : 0,
@@ -127,7 +127,7 @@ export default function ReportModal({ open, coords, onClose, onSubmit }: ReportM
             className="mb-4 border-l-2 px-3 py-2 text-[11px] leading-snug text-slate-300"
             style={{ borderColor: 'var(--found)', background: 'rgba(56,189,248,0.07)' }}
           >
-            Spot a bike you think was stolen or ditched? Flag it so the owner can find it — or call APD dispatch straight from the report.
+            Spot a bike you think was stolen or ditched? Flag it so the owner can find it - or call APD dispatch straight from the report.
           </div>
         )}
 

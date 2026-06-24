@@ -123,7 +123,7 @@ export default function App() {
     [heatPoints, heatStyle],
   );
 
-  // Scan-line re-mount key — increments each time the heatmap engages
+  // Scan-line re-mount key - increments each time the heatmap engages
   const [scanKey, setScanKey] = useState(0);
   const prevHeat = useRef(false);
   useEffect(() => {
@@ -333,7 +333,7 @@ export default function App() {
 
       {/* ---------- Top bar ---------- */}
       <header className="absolute inset-x-0 top-0 z-20 flex items-start justify-between gap-3 p-4">
-        {/* Wordmark — transit signage */}
+        {/* Wordmark - transit signage */}
         <div className="animate-bootIn flex items-center gap-3" style={{ animationDelay: '60ms' }}>
           <span className="grid h-9 w-9 place-items-center bg-brand text-[#1a1300]">
             <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">

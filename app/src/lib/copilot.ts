@@ -47,7 +47,7 @@ function classify(q: string): Intent {
     return 'accuracy';
   if (/(last|latest|recent|most recent|where was|when was)/.test(s)) return 'recent';
   if (/(route|ride|get to|cycle|commute|cycling|bike home|way home)/.test(s)) return 'route';
-  // Locality + a time word ("is my area safe right now?") — checked before park
+  // Locality + a time word ("is my area safe right now?") - checked before park
   // so "block" can't be swallowed by the park/"lock" keyword.
   if (
     hasNow &&
@@ -89,8 +89,8 @@ function liveCounts(ctx: CopilotContext) {
 }
 
 /**
- * Community layer rolled up from real incident fields — found-bike sightings and
- * rider-matched recoveries — so the copilot cites actual data, never fabricated.
+ * Community layer rolled up from real incident fields - found-bike sightings and
+ * rider-matched recoveries - so the copilot cites actual data, never fabricated.
  */
 function communitySignal(ctx: CopilotContext): { sightings: number; recovered: number } {
   const sightings = ctx.incidents.filter((i) => i.type === 'sighting').length;
@@ -146,14 +146,14 @@ export function runCopilot(question: string, ctx: CopilotContext): CopilotResult
         return {
           question,
           answer: "I'm scoring risk from a model trained on real Atlanta PD theft data.",
-          bullets: ['Live data is still loading — ask again in a moment.'],
+          bullets: ['Live data is still loading - ask again in a moment.'],
         };
       }
       return {
         question,
-        answer: `This isn't a guess — it's a model trained on ${ctx.model.nIncidents.toLocaleString()} real Atlanta PD larceny reports (${ctx.model.window}). On a held-out test, its top 5% of hotspots caught ${pct(
+        answer: `This isn't a guess - it's a model trained on ${ctx.model.nIncidents.toLocaleString()} real Atlanta PD larceny reports (${ctx.model.window}). On a held-out test, its top 5% of hotspots caught ${pct(
           v.topHotspotCapture,
-        )} of the thefts that happened next — ${v.pai}× better than chance.`,
+        )} of the thefts that happened next - ${v.pai}× better than chance.`,
         bullets: [
           `Trained on ${v.trainN.toLocaleString()} incidents through ${v.trainEnd}, tested on the ${v.testN.toLocaleString()} that came after.`,
           `Capture curve: top 2% → ${pct(v.captureCurve['2%'])}, 10% → ${pct(
@@ -170,7 +170,7 @@ export function runCopilot(question: string, ctx: CopilotContext): CopilotResult
         question,
         answer: `The highest-risk areas right now are ${top
           .map((z) => `${z.label} (${pct(z.stolenProbability)})`)
-          .join(', ')} — all modeled from real APD report density.`,
+          .join(', ')} - all modeled from real APD report density.`,
         bullets: top.map(
           (z) => `${z.label}: ${pct(z.stolenProbability)} predicted theft odds · ${z.count} reports · ${z.tier} risk.`,
         ),
@@ -197,7 +197,7 @@ export function runCopilot(question: string, ctx: CopilotContext): CopilotResult
         question,
         answer: `The most recent report was "${last.title}" in ${last.neighborhood ?? 'Atlanta'} ${ago(
           last.timestamp,
-        )}${zone ? ` — a ${zone.tier}-risk area (${pct(zone.stolenProbability)} modeled theft odds)` : ''}.`,
+        )}${zone ? ` - a ${zone.tier}-risk area (${pct(zone.stolenProbability)} modeled theft odds)` : ''}.`,
         bullets: [
           ...recentList.map(
             (i) => `${i.neighborhood ?? 'Atlanta'}: ${i.title.toLowerCase()} · ${ago(i.timestamp)}.`,
@@ -258,8 +258,8 @@ export function runCopilot(question: string, ctx: CopilotContext): CopilotResult
             suspicious ? ` · ${suspicious} suspicious report${suspicious > 1 ? 's' : ''} near ${zone.label}` : ''
           }.`,
           high
-            ? `${zone.label} is one of the city's worst zones — don't leave a bike here right now.`
-            : `${zone.label} is moderate right now — still lock to a busy, lit rack.`,
+            ? `${zone.label} is one of the city's worst zones - don't leave a bike here right now.`
+            : `${zone.label} is moderate right now - still lock to a busy, lit rack.`,
           `Safest nearby: ${safe.title}, ${fmtKm(haversineKm(ctx.origin, safe))} away.`,
         ],
         recommendation: high
@@ -276,7 +276,7 @@ export function runCopilot(question: string, ctx: CopilotContext): CopilotResult
         question,
         answer: `Safest nearby parking is the ${zone.title}, about ${fmtKm(dist)} away. ${zone.rationale}`,
         bullets: [
-          `Head to ${zone.title} — ${zone.description.toLowerCase()}`,
+          `Head to ${zone.title} - ${zone.description.toLowerCase()}`,
           hot
             ? `Avoid street racks around ${hot.label} (${pct(hot.stolenProbability)} modeled theft odds, ${hot.count} reports).`
             : 'Avoid isolated, unlit racks.',
@@ -295,7 +295,7 @@ export function runCopilot(question: string, ctx: CopilotContext): CopilotResult
           .map((z) => z.label)
           .join(' and ')} hotspots.`,
         bullets: [
-          `Follow the ${route.title} — ${route.description.toLowerCase()}`,
+          `Follow the ${route.title} - ${route.description.toLowerCase()}`,
           worst ? `It detours around ${worst.label} (${pct(worst.stolenProbability)} theft odds).` : 'It favors lit, higher-traffic streets.',
           'Open the Route planner for a full safest-vs-direct comparison with safety scores.',
         ],
@@ -307,7 +307,7 @@ export function runCopilot(question: string, ctx: CopilotContext): CopilotResult
       if (!top.length) break;
       return {
         question,
-        answer: `Avoid leaving a bike unattended in ${top.map((z) => z.label).join(', ')} — the model's top theft zones from real APD data.`,
+        answer: `Avoid leaving a bike unattended in ${top.map((z) => z.label).join(', ')} - the model's top theft zones from real APD data.`,
         bullets: top.map((z) => `${z.label}: ${pct(z.stolenProbability)} theft odds · ${z.count} reports · ${z.tier} risk.`),
         recommendation: worst
           ? { kind: 'avoid', avoidHotspot: { lat: worst.lat, lng: worst.lng, label: worst.label } }
@@ -328,7 +328,7 @@ export function runCopilot(question: string, ctx: CopilotContext): CopilotResult
         answer: `Your area maps to ${zone.label}: ${pct(zone.stolenProbability)} modeled theft odds (${zone.tier} risk, ${zone.count} reports). At ${when}, citywide risk is ${trend.phrase}.`,
         bullets: [
           high
-            ? `${zone.label} is among the city's worst — don't leave a bike here unattended.`
+            ? `${zone.label} is among the city's worst - don't leave a bike here unattended.`
             : `${zone.label} is moderate, but stay cautious near busier blocks.`,
           `${live.recent} reports city-wide in the last ${RECENT_WINDOW_H}h${
             suspicious ? ` · ${suspicious} suspicious report${suspicious > 1 ? 's' : ''} near ${zone.label}` : ''

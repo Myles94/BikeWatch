@@ -214,7 +214,7 @@ export default function MapView({
       minZoom: 10,
       maxZoom: 18,
       maxBounds: [
-        [-84.95, 33.42], // SW — greater Atlanta
+        [-84.95, 33.42], // SW - greater Atlanta
         [-83.95, 34.12], // NE
       ],
       pitch: 50,
@@ -238,7 +238,7 @@ export default function MapView({
         data: { type: 'FeatureCollection', features: [] },
       });
 
-      // Hex risk polygons (shaded fill + neon outline) — "danger" heat style
+      // Hex risk polygons (shaded fill + neon outline) - "danger" heat style
       map.addLayer({
         id: 'risk-fill',
         type: 'fill',
@@ -314,7 +314,7 @@ export default function MapView({
         },
       });
 
-      // Safe-zone heatmap (green) — shown alongside the risk heatmap
+      // Safe-zone heatmap (green) - shown alongside the risk heatmap
       map.addLayer({
         id: 'safezone-heat',
         type: 'heatmap',
@@ -695,7 +695,7 @@ export default function MapView({
     else map.once('bikewatch:ready', apply);
   }, [trip, tripVisible, selectedId]);
 
-  // Clickable Atlanta landmarks (wayfinding) — fly + set as route origin
+  // Clickable Atlanta landmarks (wayfinding) - fly + set as route origin
   useEffect(() => {
     const map = mapRef.current;
     if (!map) return;

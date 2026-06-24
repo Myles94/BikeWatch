@@ -17,7 +17,7 @@ export const pickImage = (title: string, idx: number): string => {
   return BIKE_IMAGES[idx % BIKE_IMAGES.length];
 };
 
-/** Community rider handles — BikeWatch is crowdsourced by local riders. */
+/** Community rider handles - BikeWatch is crowdsourced by local riders. */
 export const COMMUNITY_HANDLES = [
   '@atlbikecourier',
   '@beltline_rider',
@@ -164,27 +164,27 @@ export const FEATURED_REPORTS: Incident[] = [
 ];
 
 /**
- * Community "found bike" sightings — riders looking out for each other. These
+ * Community "found bike" sightings - riders looking out for each other. These
  * are positive signals (a spotted/abandoned bike) that may match a theft report.
  */
 export const FEATURED_SIGHTINGS: Incident[] = [
   {
     id: 'sight-demo', type: 'sighting', title: 'Cannondale spotted being ridden on the BeltLine',
-    description: 'Spotted someone riding this Cannondale down the Eastside BeltLine by Ponce City Market — looks like the one from @beltline_rider\'s stolen-bike report. Following at a distance and calling APD dispatch ASAP.',
+    description: 'Spotted someone riding this Cannondale down the Eastside BeltLine by Ponce City Market - looks like the one from @beltline_rider\'s stolen-bike report. Following at a distance and calling APD dispatch ASAP.',
     lat: 33.7728, lng: -84.3636, timestamp: hoursAgo(1), riskWeight: 0,
     neighborhood: 'Old Fourth Ward', imageUrl: '/reports/demo.png', source: 'featured', isNew: true,
     reporter: '@atlbikecourier', watchers: 12,
   },
   {
     id: 'sight-mid', type: 'sighting', title: 'Locked e-scooter, no battery',
-    description: 'Spotted a stripped e-scooter ditched by the MARTA entrance — battery and deck gone.',
+    description: 'Spotted a stripped e-scooter ditched by the MARTA entrance - battery and deck gone.',
     lat: 33.7822, lng: -84.3845, timestamp: hoursAgo(3), riskWeight: 0,
     neighborhood: 'Midtown', imageUrl: '/reports/scooter-1.jpg', source: 'featured',
     reporter: '@midtown_pedals', watchers: 4,
   },
   {
     id: 'sight-gt', type: 'sighting', title: 'Found a bike in the bushes',
-    description: 'Blue commuter bike stashed in the hedges near Tech Square — might be someone\'s stolen ride.',
+    description: 'Blue commuter bike stashed in the hedges near Tech Square - might be someone\'s stolen ride.',
     lat: 33.7762, lng: -84.3892, timestamp: hoursAgo(1), riskWeight: 0,
     neighborhood: 'Georgia Tech', imageUrl: '/reports/bike-2.jpg', source: 'featured', isNew: true,
     reporter: '@gt_nightowl', watchers: 8,

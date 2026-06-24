@@ -28,7 +28,7 @@ export default function CopilotDock({ open, onOpenChange, onAsk }: CopilotDockPr
   const [items, setItems] = useState<ChatItem[]>([
     {
       role: 'bot',
-      text: 'Theft-intelligence console online. I track live activity across Atlanta — ask where to park, what to avoid, or for a safer route home.',
+      text: 'Theft-intelligence console online. I track live activity across Atlanta - ask where to park, what to avoid, or for a safer route home.',
     },
   ]);
   const [input, setInput] = useState('');

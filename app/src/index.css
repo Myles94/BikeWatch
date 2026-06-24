@@ -280,7 +280,7 @@ body {
   box-shadow: 0 0 0 1px rgba(33, 208, 122, 0.25), 0 4px 14px rgba(0, 0, 0, 0.6);
 }
 
-/* ---------- Incident markers (rounded — the one place curves are allowed) ---------- */
+/* ---------- Incident markers (rounded - the one place curves are allowed) ---------- */
 .incident-marker {
   width: 13px;
   height: 13px;
@@ -358,7 +358,7 @@ body {
   cursor: pointer;
 }
 
-/* ---------- Zone analytics overlay (heatmap mode) — sharp ops readout ---------- */
+/* ---------- Zone analytics overlay (heatmap mode) - sharp ops readout ---------- */
 .zone-analytics {
   pointer-events: none;
   width: 168px;

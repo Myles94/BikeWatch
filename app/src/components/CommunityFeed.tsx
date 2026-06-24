@@ -123,7 +123,7 @@ export default function CommunityFeed({ open, onToggle, watchersBase, recovery }
   const [watchers, setWatchers] = useState(() => Math.max(28, watchersBase));
   const [, force] = useState(0);
 
-  // Ambient live activity — the community heartbeat.
+  // Ambient live activity - the community heartbeat.
   useEffect(() => {
     if (!open) return;
     const t = setInterval(() => {

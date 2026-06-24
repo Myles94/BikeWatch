@@ -25,7 +25,7 @@ const STEPS: { key: DispatchStatus; label: string }[] = [
 
 const STATUS_COPY: Record<DispatchStatus, string> = {
   submitted: 'Report relayed to APD dispatch queue',
-  acknowledged: 'Dispatcher acknowledged — assigning a unit',
+  acknowledged: 'Dispatcher acknowledged - assigning a unit',
   responding: 'Officer en route · ETA ~6 min',
   resolved: 'Case closed by responding unit',
 };
