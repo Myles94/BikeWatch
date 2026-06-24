@@ -169,11 +169,11 @@ export const FEATURED_REPORTS: Incident[] = [
  */
 export const FEATURED_SIGHTINGS: Incident[] = [
   {
-    id: 'sight-pcm', type: 'sighting', title: 'Abandoned bike by the BeltLine',
-    description: 'Black road bike with a cut cable lock left against the rail near Ponce City Market. Looks dumped.',
-    lat: 33.7659, lng: -84.3662, timestamp: hoursAgo(2), riskWeight: 0,
-    neighborhood: 'Old Fourth Ward', imageUrl: '/reports/bike-3.jpg', source: 'featured', isNew: true,
-    reporter: '@beltline_rider', watchers: 6,
+    id: 'sight-demo', type: 'sighting', title: 'Cannondale spotted on the BeltLine',
+    description: 'Cannondale locked to the rail near Ponce City Market on the Eastside BeltLine. Pretty sure this is the one from @beltline_rider\'s stolen-bike report — flagging it now and making an APD dispatch ASAP.',
+    lat: 33.7651, lng: -84.3658, timestamp: hoursAgo(1), riskWeight: 0,
+    neighborhood: 'Old Fourth Ward', imageUrl: '/reports/demo.png', source: 'featured', isNew: true,
+    reporter: '@atlbikecourier', watchers: 12,
   },
   {
     id: 'sight-mid', type: 'sighting', title: 'Locked e-scooter, no battery',
