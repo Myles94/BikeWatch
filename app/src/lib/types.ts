@@ -98,6 +98,17 @@ export interface SafeZone {
 
 export type RecommendationKind = 'route' | 'parking' | 'avoid';
 
+// Live community-watch activity feed
+export type FeedKind = 'report' | 'sighting' | 'recovery' | 'watch';
+export interface FeedEvent {
+  id: string;
+  kind: FeedKind;
+  handle: string;
+  action: string;
+  place: string;
+  at: number; // epoch ms
+}
+
 export interface CopilotRecommendation {
   kind: RecommendationKind;
   routeId?: string;

@@ -4,6 +4,7 @@ import CopilotDock from './components/CopilotDock';
 import ReportModal from './components/ReportModal';
 import TripPlanner from './components/TripPlanner';
 import TimeScrubber from './components/TimeScrubber';
+import CommunityFeed from './components/CommunityFeed';
 import type { HeatPoint, Incident, RiskModel, Temporal, TripPlan, TripPoint, Zone } from './lib/types';
 import { FEATURED_REPORTS, FEATURED_SIGHTINGS, SEED_ROUTES, SEED_SAFE_ZONES, TRIP_POINTS, CITY } from './data/incidents';
 import { runCopilot } from './lib/copilot';
@@ -47,9 +48,10 @@ export default function App() {
 
   // Community recoveries: a found-bike sighting matched to an open theft report.
   const [recoveries, setRecoveries] = useState<
-    { theftId: string; sightingId: string; by: string; at: string }[]
+    { theftId: string; sightingId: string; by: string; place: string; at: string }[]
   >([]);
   const [toast, setToast] = useState<{ title: string; sub: string } | null>(null);
+  const [feedOpen, setFeedOpen] = useState(true);
 
   // Load the real-data risk layer (APD pipeline output) once.
   useEffect(() => {
@@ -114,6 +116,14 @@ export default function App() {
     });
   }, [realIncidents, userIncidents, recoveries]);
   const recoveredCount = recoveries.length;
+  const watchersBase = useMemo(
+    () => 26 + incidents.reduce((s, i) => s + (i.watchers ?? 0), 0),
+    [incidents],
+  );
+  const lastRecovery = useMemo(() => {
+    const r = recoveries[recoveries.length - 1];
+    return r ? { by: r.by, place: r.place, key: Date.parse(r.at) } : null;
+  }, [recoveries]);
   const totalIncidents = model?.nIncidents ?? incidents.length;
   const zoneCount = model?.nZones ?? zones.length;
   const highRiskCount = zones.filter((z) => z.tier === 'High').length;
@@ -166,9 +176,10 @@ export default function App() {
       return;
     }
     const by = sighting.reporter ?? '@a_rider';
+    const place = best.neighborhood ?? sighting.neighborhood ?? 'Atlanta';
     setRecoveries((prev) => [
       ...prev,
-      { theftId: best!.id, sightingId, by, at: new Date().toISOString() },
+      { theftId: best!.id, sightingId, by, place, at: new Date().toISOString() },
     ]);
     setFlyTarget({ lat: best.lat, lng: best.lng, key: Date.now() });
     setToast({
@@ -368,6 +379,14 @@ export default function App() {
         onPlan={handlePlanTrip}
         onSelect={handleSelectRoute}
         onClear={handleClearTrip}
+      />
+
+      {/* ---------- Community watch feed ---------- */}
+      <CommunityFeed
+        open={feedOpen}
+        onToggle={() => setFeedOpen((v) => !v)}
+        watchersBase={watchersBase}
+        recovery={lastRecovery}
       />
 
       {/* ---------- Temporal scrubber (heatmap mode) ---------- */}
