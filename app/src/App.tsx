@@ -30,6 +30,7 @@ interface TourStep {
   matchId?: string;
   trip?: boolean;
   copilot?: boolean;
+  tips?: boolean;
 }
 
 const PCM = { lng: -84.3636, lat: 33.7728 };
@@ -37,40 +38,48 @@ const MIDTOWN = { lng: -84.3832, lat: 33.7815 };
 const ATL = { lng: -84.3853, lat: 33.7701 };
 
 const TOUR_STEPS: TourStep[] = [
+  // --- The hook: cut from the rider video straight to that same bike on the map ---
   {
-    title: 'Live theft map · Atlanta',
-    say: 'This is BikeWatch - a live risk map built from 1,600 real Atlanta PD theft reports.',
+    title: 'That bike, on the map',
+    say: 'The bike you just saw? A rider spotted it on the BeltLine and flagged it on BikeWatch. This is where the story begins.',
+    camera: { ...PCM, zoom: 15.4, pitch: 56, bearing: 12, duration: 1800 },
+    popupId: 'sight-demo',
+  },
+  // --- Showcase BikeWatch as a whole ---
+  {
+    title: 'A citywide safety net',
+    say: 'BikeWatch is a live theft map for all of Atlanta, built from 1,600 real Atlanta PD reports.',
     camera: { ...ATL, zoom: 12.6, pitch: 48, bearing: -18, duration: 2200 },
   },
   {
     title: 'Predictive hotspots',
-    say: 'Our model learned where thefts cluster - its top 5% of hotspots caught a third of the next thefts, about 7× better than chance.',
+    say: 'Our model learned where thefts cluster. Its top 5% of hotspots caught a third of the next thefts, about 7 times better than chance.',
     camera: { ...ATL, zoom: 12.9, pitch: 52, bearing: -10 },
     heatmap: true,
     heatStyle: 'blur',
   },
   {
     title: 'Risk by time of day',
-    say: 'And risk breathes by the hour - late at night, these corridors light up.',
+    say: 'And risk breathes by the hour. Late at night, these corridors light up.',
     camera: { ...ATL, zoom: 13.0, pitch: 54, bearing: 0 },
     heatmap: true,
     play: true,
   },
   {
-    title: 'A rider spots the bike',
-    say: 'That same Cannondale from the intro? A rider just spotted it on the BeltLine and flagged it.',
-    camera: { ...PCM, zoom: 15.4, pitch: 56, bearing: 12 },
-    popupId: 'sight-demo',
+    title: 'The community is watching',
+    say: 'Hundreds of riders are watching this map in real time. Neighbors looking out for neighbors.',
+    camera: { ...ATL, zoom: 12.8, pitch: 50, bearing: -8 },
   },
   {
-    title: 'The community is watching',
-    say: 'Over a hundred riders are watching this map in real time - neighbors looking out for neighbors.',
-    camera: { ...PCM, zoom: 15.0, pitch: 54, bearing: -6 },
-    popupId: 'sight-demo',
+    title: 'Lock it down',
+    say: 'Every rider gets quick, practical tips to keep their bike from becoming the next report.',
+    camera: { ...ATL, zoom: 12.8, pitch: 50, bearing: -6 },
+    tips: true,
   },
+  // --- The action loop: back to that Cannondale ---
   {
     title: 'One tap to APD dispatch',
-    say: 'One tap hands it to APD dispatch - submitted, acknowledged, officer responding.',
+    say: 'Back to that Cannondale. One tap escalates it to APD dispatch: submitted, acknowledged, officer responding.',
     camera: { ...PCM, zoom: 14.7, pitch: 52, bearing: 0 },
     popupId: 'sight-demo',
     escalateId: 'sight-demo',
@@ -83,13 +92,13 @@ const TOUR_STEPS: TourStep[] = [
   },
   {
     title: 'Safe vs fast routing',
-    say: "It's prevention too - a safe route home that actively steers around the worst theft zones.",
+    say: "It's prevention too: a safe route home that actively steers around the worst theft zones.",
     camera: { ...MIDTOWN, zoom: 13.4, pitch: 50, bearing: -12 },
     trip: true,
   },
   {
     title: 'Ask BikeWatch',
-    say: "Ask 'is my area safe right now?' and it answers from real data - live counts and the nearest safe place to lock up.",
+    say: "Ask 'is my area safe right now?' and it answers from real data: live counts and the nearest safe place to lock up.",
     camera: { ...ATL, zoom: 13.0, pitch: 48, bearing: -8 },
     copilot: true,
   },
@@ -350,6 +359,7 @@ export default function App() {
     }
     setTripOpen(!!s.trip);
     setCopilotOpen(!!s.copilot);
+    setTipsOpen(!!s.tips);
     setReportMode(false);
     setOpenPopup({ id: s.popupId ?? '', key: Date.now() });
     setCinematic({ ...s.camera, key: Date.now() });
@@ -371,6 +381,7 @@ export default function App() {
     setPlaying(false);
     setTripOpen(false);
     setCopilotOpen(false);
+    setTipsOpen(false);
     setOpenPopup({ id: '', key: Date.now() });
     setCinematic({ ...ATL, zoom: CITY.zoom, pitch: 50, bearing: -18, duration: 1800, key: Date.now() });
   };
