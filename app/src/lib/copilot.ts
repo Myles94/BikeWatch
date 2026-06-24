@@ -22,9 +22,9 @@ export interface CopilotContext {
 }
 
 export const SUGGESTED_PROMPTS = [
+  'Is my area safe right now?',
   'Where should I park?',
   'Riskiest areas right now?',
-  'How accurate is this model?',
   'Where was the last theft?',
 ];
 
@@ -33,6 +33,7 @@ type Intent =
   | 'avoid'
   | 'route'
   | 'risk'
+  | 'areanow'
   | 'accuracy'
   | 'riskiest'
   | 'recent'
@@ -41,10 +42,18 @@ type Intent =
 
 function classify(q: string): Intent {
   const s = q.toLowerCase();
+  const hasNow = /(right now|tonight|currently|at the moment|this hour|\bnow\b|today)/.test(s);
   if (/(accurate|accuracy|validat|how good|reliable|trust|real data|how does|model work|prove)/.test(s))
     return 'accuracy';
   if (/(last|latest|recent|most recent|where was|when was)/.test(s)) return 'recent';
   if (/(route|ride|get to|cycle|commute|cycling|bike home|way home)/.test(s)) return 'route';
+  // Locality + a time word ("is my area safe right now?") — checked before park
+  // so "block" can't be swallowed by the park/"lock" keyword.
+  if (
+    hasNow &&
+    /(my area|near me|around me|\bhere\b|my block|my location|this area|where i am|safe right now|safe now|is it safe)/.test(s)
+  )
+    return 'areanow';
   if (/(park|lock|leave my bike|secure|store|rack)/.test(s)) {
     if (/(risk|safe to|dangerous|here)/.test(s) && !/where|nearby|better/.test(s)) return 'risk';
     return 'park';
@@ -60,6 +69,37 @@ function classify(q: string): Intent {
 
 const fmtKm = (km: number) => (km < 1 ? `${Math.round(km * 1000)} m` : `${km.toFixed(1)} km`);
 const pct = (p: number) => `${Math.round(p * 100)}%`;
+
+const RECENT_WINDOW_H = 48;
+const hoursSince = (iso: string) => (Date.now() - new Date(iso).getTime()) / 3600_000;
+
+/** Live activity rollup across the current incident feed. */
+function liveCounts(ctx: CopilotContext) {
+  let recent = 0;
+  let thefts = 0;
+  let suspicious = 0;
+  let sightings = 0;
+  for (const i of ctx.incidents) {
+    if (i.type === 'theft') thefts += 1;
+    else if (i.type === 'suspicious') suspicious += 1;
+    else if (i.type === 'sighting') sightings += 1;
+    if (i.timestamp && hoursSince(i.timestamp) <= RECENT_WINDOW_H) recent += 1;
+  }
+  return { total: ctx.incidents.length, recent, thefts, suspicious, sightings };
+}
+
+/**
+ * Community layer rolled up from real incident fields — found-bike sightings and
+ * rider-matched recoveries — so the copilot cites actual data, never fabricated.
+ */
+function communitySignal(ctx: CopilotContext): { sightings: number; recovered: number } {
+  const sightings = ctx.incidents.filter((i) => i.type === 'sighting').length;
+  const recovered = ctx.incidents.filter((i) => i.recovered).length;
+  return { sightings, recovered };
+}
+
+const hoodSuspicious = (ctx: CopilotContext, hood: string): number =>
+  ctx.incidents.filter((i) => i.type === 'suspicious' && (i.neighborhood ?? '') === hood).length;
 
 function nearestZone(ctx: CopilotContext): Zone | null {
   if (!ctx.zones.length) return null;
@@ -141,20 +181,32 @@ export function runCopilot(question: string, ctx: CopilotContext): CopilotResult
     }
 
     case 'recent': {
-      const recent = [...ctx.incidents]
+      const wantTheft = /(theft|stolen|stole|robbed|bike)/.test(question.toLowerCase());
+      const pool = wantTheft ? ctx.incidents.filter((i) => i.type === 'theft') : ctx.incidents;
+      const source = pool.length ? pool : ctx.incidents;
+      const recentList = [...source]
         .filter((i) => i.timestamp)
         .sort((a, b) => +new Date(b.timestamp) - +new Date(a.timestamp))
         .slice(0, 3);
-      if (!recent.length) break;
-      const last = recent[0];
+      if (!recentList.length) break;
+      const last = recentList[0];
+      const live = liveCounts(ctx);
+      const sig = communitySignal(ctx);
+      const zone = ctx.zones.find((z) => z.label === last.neighborhood) ?? null;
       return {
         question,
         answer: `The most recent report was "${last.title}" in ${last.neighborhood ?? 'Atlanta'} ${ago(
           last.timestamp,
-        )}.`,
-        bullets: recent.map(
-          (i) => `${i.neighborhood ?? 'Atlanta'}: ${i.title.toLowerCase()} · ${ago(i.timestamp)}.`,
-        ),
+        )}${zone ? ` — a ${zone.tier}-risk area (${pct(zone.stolenProbability)} modeled theft odds)` : ''}.`,
+        bullets: [
+          ...recentList.map(
+            (i) => `${i.neighborhood ?? 'Atlanta'}: ${i.title.toLowerCase()} · ${ago(i.timestamp)}.`,
+          ),
+          `${live.recent} reports in the last ${RECENT_WINDOW_H}h · ${sig.sightings} community sightings · ${sig.recovered} bikes recovered via rider matches.`,
+        ],
+        recommendation: zone
+          ? { kind: 'avoid', avoidHotspot: { lat: zone.lat, lng: zone.lng, label: zone.label } }
+          : undefined,
       };
     }
 
@@ -177,6 +229,42 @@ export function runCopilot(question: string, ctx: CopilotContext): CopilotResult
         recommendation: peaks[0]
           ? { kind: 'avoid', avoidHotspot: { lat: peaks[0].zone.lat, lng: peaks[0].zone.lng, label: peaks[0].zone.label } }
           : undefined,
+      };
+    }
+
+    case 'areanow': {
+      const zone = nearestZone(ctx);
+      if (!zone) break;
+      const safe = nearestSafeZone(ctx.origin, ctx.safeZones);
+      const trend = timeTrend(ctx);
+      const live = liveCounts(ctx);
+      const peak = peakingNow(ctx).find((p) => p.zone.label === zone.label);
+      const mult = peak ? peak.mult : 1;
+      const localPhrase =
+        mult >= 1.12
+          ? `running ${Math.round((mult - 1) * 100)}% above its usual activity this hour`
+          : mult <= 0.88
+            ? `quieter than its usual ${formatHour(ctx.time.hour)} level`
+            : 'near its typical level for this hour';
+      const suspicious = hoodSuspicious(ctx, zone.label);
+      const high = zone.tier === 'High';
+      return {
+        question,
+        answer: `Right now (${when}) you're in ${zone.label}: ${pct(
+          zone.stolenProbability,
+        )} modeled theft odds (${zone.tier} risk). City-wide theft risk is ${trend.phrase}, and ${zone.label} is ${localPhrase}.`,
+        bullets: [
+          `${live.recent} reports city-wide in the last ${RECENT_WINDOW_H}h${
+            suspicious ? ` · ${suspicious} suspicious report${suspicious > 1 ? 's' : ''} near ${zone.label}` : ''
+          }.`,
+          high
+            ? `${zone.label} is one of the city's worst zones — don't leave a bike here right now.`
+            : `${zone.label} is moderate right now — still lock to a busy, lit rack.`,
+          `Safest nearby: ${safe.title}, ${fmtKm(haversineKm(ctx.origin, safe))} away.`,
+        ],
+        recommendation: high
+          ? { kind: 'avoid', avoidHotspot: { lat: zone.lat, lng: zone.lng, label: zone.label } }
+          : { kind: 'parking', safeZoneId: safe.id },
       };
     }
 
@@ -233,6 +321,8 @@ export function runCopilot(question: string, ctx: CopilotContext): CopilotResult
       const trend = timeTrend(ctx);
       if (!zone) break;
       const high = zone.tier === 'High';
+      const live = liveCounts(ctx);
+      const suspicious = hoodSuspicious(ctx, zone.label);
       return {
         question,
         answer: `Your area maps to ${zone.label}: ${pct(zone.stolenProbability)} modeled theft odds (${zone.tier} risk, ${zone.count} reports). At ${when}, citywide risk is ${trend.phrase}.`,
@@ -240,6 +330,9 @@ export function runCopilot(question: string, ctx: CopilotContext): CopilotResult
           high
             ? `${zone.label} is among the city's worst — don't leave a bike here unattended.`
             : `${zone.label} is moderate, but stay cautious near busier blocks.`,
+          `${live.recent} reports city-wide in the last ${RECENT_WINDOW_H}h${
+            suspicious ? ` · ${suspicious} suspicious report${suspicious > 1 ? 's' : ''} near ${zone.label}` : ''
+          }.`,
           `Safer alternative: ${safe.title} (${fmtKm(haversineKm(ctx.origin, safe))} away).`,
           'Use two locks and pick a lit, high-traffic rack.',
         ],
@@ -250,15 +343,18 @@ export function runCopilot(question: string, ctx: CopilotContext): CopilotResult
 
   // Fallback / unknown
   const v = ctx.model?.validation;
+  const live = liveCounts(ctx);
+  const sig = communitySignal(ctx);
   return {
     question,
     answer: worst
-      ? `I'm your theft-intelligence copilot, scoring risk from ${ctx.model?.nIncidents.toLocaleString() ?? 'real'} Atlanta PD reports. Right now ${worst.label} is the #1 risk zone (${pct(
+      ? `I'm your theft-intelligence copilot, scoring risk from ${ctx.model?.nIncidents.toLocaleString() ?? 'real'} Atlanta PD reports. ${live.recent} came in the last ${RECENT_WINDOW_H}h; right now ${worst.label} is the #1 risk zone (${pct(
           worst.stolenProbability,
         )}).`
       : "I'm your theft-intelligence copilot. Ask me where to park, what to avoid, or how the model works.",
     bullets: v
       ? [
+          `${sig.sightings} community bike sightings · ${sig.recovered} recovered via rider matches.`,
           `Model validated at ${v.pai}× better than chance on held-out data.`,
           ...SUGGESTED_PROMPTS.map((p) => `Try: "${p}"`),
         ]

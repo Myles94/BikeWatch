@@ -11,6 +11,7 @@ import { FEATURED_REPORTS, FEATURED_SIGHTINGS, SEED_ROUTES, SEED_SAFE_ZONES, TRI
 import { runCopilot } from './lib/copilot';
 import { planTrip } from './lib/routing';
 import { loadRiskData } from './lib/loadData';
+import { anchorZonesToHotspots, reportHeatPoints } from './lib/geo';
 import { type DayType, nowSelection, weightedHeatPoints } from './lib/temporal';
 import { type HeatStyle, HEAT_STYLES, buildRiskPolygons } from './lib/heatStyles';
 
@@ -80,10 +81,40 @@ export default function App() {
     return () => clearInterval(t);
   }, [playing]);
 
-  // Time-weighted heatmap points (shift by hour-of-day profile).
+  // Hybrid: curated bike/scooter reports + community sightings on top of the
+  // real larceny sample. Community recoveries flip matched thefts to
+  // "recovered" and tag the sighting that solved them. Defined before the heat
+  // memos below because reportHeat is derived from this incident set.
+  const incidents = useMemo(() => {
+    const base = [...FEATURED_REPORTS, ...FEATURED_SIGHTINGS, ...realIncidents, ...userIncidents];
+    if (recoveries.length === 0) return base;
+    const byTheft = new Map(recoveries.map((r) => [r.theftId, r]));
+    const bySighting = new Map(recoveries.map((r) => [r.sightingId, r]));
+    return base.map((inc) => {
+      const asTheft = byTheft.get(inc.id);
+      if (asTheft) return { ...inc, recovered: true, recoveredBy: asTheft.by };
+      const asSighting = bySighting.get(inc.id);
+      if (asSighting) return { ...inc, matchedTheftId: asSighting.theftId };
+      return inc;
+    });
+  }, [realIncidents, userIncidents, recoveries]);
+
+  // Synthetic heat-points for curated + user reports, so every dot sits inside a
+  // hotspot blob and a fresh report visibly intensifies the heatmap (APD markers
+  // are already pipeline heat-points and are skipped inside reportHeatPoints).
+  const reportHeat = useMemo(() => reportHeatPoints(incidents), [incidents]);
+
+  // Time-weighted real KDE points + the report blobs, fed to the heatmap.
   const heatPoints = useMemo(
-    () => weightedHeatPoints(rawHeatPoints, temporal, time),
-    [rawHeatPoints, temporal, time],
+    () => [...weightedHeatPoints(rawHeatPoints, temporal, time), ...reportHeat],
+    [rawHeatPoints, temporal, time, reportHeat],
+  );
+
+  // Zones re-anchored to the bright core of their heatmap blob (stable: derived
+  // from the raw KDE points, so cards don't jump as the time scrubber moves).
+  const anchoredZones = useMemo(
+    () => anchorZonesToHotspots(zones, rawHeatPoints),
+    [zones, rawHeatPoints],
   );
 
   // Grid/hex risk polygons for the non-blur heatmap styles.
@@ -101,22 +132,6 @@ export default function App() {
     prevHeat.current = showHeatmap;
   }, [showHeatmap]);
 
-  // Hybrid: curated bike/scooter reports + community sightings on top of the
-  // real larceny sample. Community recoveries flip matched thefts to
-  // "recovered" and tag the sighting that solved them.
-  const incidents = useMemo(() => {
-    const base = [...FEATURED_REPORTS, ...FEATURED_SIGHTINGS, ...realIncidents, ...userIncidents];
-    if (recoveries.length === 0) return base;
-    const byTheft = new Map(recoveries.map((r) => [r.theftId, r]));
-    const bySighting = new Map(recoveries.map((r) => [r.sightingId, r]));
-    return base.map((inc) => {
-      const asTheft = byTheft.get(inc.id);
-      if (asTheft) return { ...inc, recovered: true, recoveredBy: asTheft.by };
-      const asSighting = bySighting.get(inc.id);
-      if (asSighting) return { ...inc, matchedTheftId: asSighting.theftId };
-      return inc;
-    });
-  }, [realIncidents, userIncidents, recoveries]);
   const recoveredCount = recoveries.length;
   const watchersBase = useMemo(
     () => 26 + incidents.reduce((s, i) => s + (i.watchers ?? 0), 0),
@@ -234,7 +249,7 @@ export default function App() {
       incidents,
       safeZones: SEED_SAFE_ZONES,
       routes: SEED_ROUTES,
-      zones,
+      zones: anchoredZones,
       model,
       temporal,
       time,
@@ -255,7 +270,7 @@ export default function App() {
   const handlePlanTrip = async (origin: TripPoint, destination: TripPoint) => {
     setPlanning(true);
     try {
-      setTripPlan(await planTrip(origin, destination, zones));
+      setTripPlan(await planTrip(origin, destination, anchoredZones));
       setSelectedRouteId('safe');
     } finally {
       setPlanning(false);
@@ -280,7 +295,7 @@ export default function App() {
       <MapView
         incidents={incidents}
         heatPoints={heatPoints}
-        zones={zones}
+        zones={anchoredZones}
         safeZones={SEED_SAFE_ZONES}
         landmarks={landmarks}
         activeRoute={activeRoute}
