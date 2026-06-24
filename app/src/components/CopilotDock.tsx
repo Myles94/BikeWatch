@@ -12,6 +12,7 @@ interface CopilotDockProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onAsk: (question: string) => CopilotResult;
+  autoAsk?: { question: string; key: number } | null;
 }
 
 function CoreIcon({ className = '' }: { className?: string }) {
@@ -24,7 +25,7 @@ function CoreIcon({ className = '' }: { className?: string }) {
   );
 }
 
-export default function CopilotDock({ open, onOpenChange, onAsk }: CopilotDockProps) {
+export default function CopilotDock({ open, onOpenChange, onAsk, autoAsk }: CopilotDockProps) {
   const [items, setItems] = useState<ChatItem[]>([
     {
       role: 'bot',
@@ -51,6 +52,17 @@ export default function CopilotDock({ open, onOpenChange, onAsk }: CopilotDockPr
       setThinking(false);
     }, 600);
   };
+
+  // Auto-ask a question (demo tour drives this) with a brief "typing" feel.
+  const lastAutoRef = useRef<number | null>(null);
+  useEffect(() => {
+    if (!autoAsk || autoAsk.key === lastAutoRef.current) return;
+    lastAutoRef.current = autoAsk.key;
+    setInput(autoAsk.question);
+    const t = setTimeout(() => submit(autoAsk.question), 700);
+    return () => clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [autoAsk]);
 
   return (
     <div className="pointer-events-none absolute bottom-5 right-5 z-30 flex flex-col items-end gap-3">

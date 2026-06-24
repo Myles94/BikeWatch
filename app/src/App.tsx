@@ -8,6 +8,7 @@ import TimeScrubber from './components/TimeScrubber';
 import CommunityFeed from './components/CommunityFeed';
 import DispatchConsole, { type Dispatch } from './components/DispatchConsole';
 import DemoTour from './components/DemoTour';
+import Outro from './components/Outro';
 import type { HeatPoint, Incident, RiskModel, Temporal, TripPlan, TripPoint, Zone } from './lib/types';
 import { FEATURED_REPORTS, FEATURED_SIGHTINGS, SEED_ROUTES, SEED_SAFE_ZONES, TRIP_POINTS, CITY, randomHandle } from './data/incidents';
 import { runCopilot } from './lib/copilot';
@@ -21,7 +22,7 @@ import { type HeatStyle, HEAT_STYLES, buildRiskPolygons } from './lib/heatStyles
 interface TourStep {
   title: string;
   say: string;
-  camera: { lng: number; lat: number; zoom: number; pitch: number; bearing: number; duration?: number };
+  camera?: { lng: number; lat: number; zoom: number; pitch: number; bearing: number; duration?: number };
   heatmap?: boolean;
   heatStyle?: HeatStyle;
   play?: boolean;
@@ -29,12 +30,14 @@ interface TourStep {
   escalateId?: string;
   matchId?: string;
   trip?: boolean;
+  planRoute?: { originId: string; destId: string };
+  clearDispatch?: boolean;
   copilot?: boolean;
+  autoAsk?: string;
   tips?: boolean;
 }
 
 const PCM = { lng: -84.3636, lat: 33.7728 };
-const MIDTOWN = { lng: -84.3832, lat: 33.7815 };
 const ATL = { lng: -84.3853, lat: 33.7701 };
 
 const TOUR_STEPS: TourStep[] = [
@@ -81,32 +84,30 @@ const TOUR_STEPS: TourStep[] = [
   {
     title: 'One tap to APD dispatch',
     say: 'Back to that Cannondale. One tap escalates it to APD dispatch: submitted, acknowledged, officer responding.',
-    camera: { ...PCM, zoom: 14.7, pitch: 52, bearing: 0 },
-    popupId: 'sight-demo',
+    camera: { lng: PCM.lng, lat: PCM.lat - 0.004, zoom: 14.6, pitch: 48, bearing: 0, duration: 1700 },
     escalateId: 'sight-demo',
   },
   {
     title: 'Reunited with its owner',
-    say: 'Because another rider reported it stolen, BikeWatch links them and gets the bike home.',
-    camera: { ...PCM, zoom: 15.2, pitch: 56, bearing: 8 },
+    say: 'Because another rider reported it stolen, BikeWatch links them, closes the case, and gets the bike home.',
+    camera: { lng: PCM.lng, lat: PCM.lat - 0.003, zoom: 14.9, pitch: 50, bearing: 6 },
     matchId: 'sight-demo',
   },
   {
     title: 'Safe vs fast routing',
     say: "It's prevention too: a safe route home that actively steers around the worst theft zones.",
-    camera: { ...MIDTOWN, zoom: 13.4, pitch: 50, bearing: -12 },
     trip: true,
+    planRoute: { originId: 'tp-mid', destId: 'tp-dt' },
+    clearDispatch: true,
   },
   {
     title: 'Ask BikeWatch',
-    say: "Ask 'is my area safe right now?' and it answers from real data: live counts and the nearest safe place to lock up.",
-    camera: { ...ATL, zoom: 13.0, pitch: 48, bearing: -8 },
+    say: "Ask 'is my area safe right now?' and it answers from real data, then lights up the live risk grid.",
+    camera: { ...ATL, zoom: 13.0, pitch: 50, bearing: -8 },
     copilot: true,
-  },
-  {
-    title: 'Every rider a lookout',
-    say: 'From a stolen bike in a video to a recovered bike on the map. BikeWatch turns every rider into a lookout.',
-    camera: { ...ATL, zoom: 12.4, pitch: 48, bearing: -18, duration: 2400 },
+    autoAsk: 'Is my area safe right now?',
+    heatmap: true,
+    heatStyle: 'hex',
   },
 ];
 
@@ -159,6 +160,8 @@ export default function App() {
     { lng: number; lat: number; zoom: number; pitch: number; bearing: number; duration?: number; key: number } | null
   >(null);
   const [openPopup, setOpenPopup] = useState<{ id: string; key: number } | null>(null);
+  const [autoAsk, setAutoAsk] = useState<{ question: string; key: number } | null>(null);
+  const [outro, setOutro] = useState(false);
 
   // Load the real-data risk layer (APD pipeline output) once.
   useEffect(() => {
@@ -303,6 +306,8 @@ export default function App() {
       { theftId: best!.id, sightingId, by, place, at: new Date().toISOString() },
     ]);
     setFlyTarget({ lat: best.lat, lng: best.lng, key: Date.now() });
+    // Reuniting the bike also closes any open APD case for this report.
+    setDispatches((prev) => prev.map((d) => (d.id === sightingId ? { ...d, status: 'resolved' } : d)));
     setToast({
       title: 'Bike reunited with its owner',
       sub: `${by} matched a found bike to a theft ${bestKm.toFixed(1)} km away`,
@@ -339,6 +344,7 @@ export default function App() {
       );
     window.setTimeout(() => advance('acknowledged', 'submitted'), 2600);
     window.setTimeout(() => advance('responding', 'acknowledged'), 6400);
+    window.setTimeout(() => advance('resolved', 'responding'), 9800);
   };
 
   const handleResolveDispatch = (id: string) =>
@@ -363,9 +369,20 @@ export default function App() {
     setTipsOpen(!!s.tips);
     setReportMode(false);
     setOpenPopup({ id: s.popupId ?? '', key: Date.now() });
-    setCinematic({ ...s.camera, key: Date.now() });
+    if (s.camera) setCinematic({ ...s.camera, key: Date.now() });
+    if (s.clearDispatch) setDispatches([]);
     if (s.escalateId) handleEscalate(s.escalateId);
     if (s.matchId) handleMatchSighting(s.matchId);
+    if (s.planRoute) {
+      const origin = TRIP_POINTS.find((p) => p.id === s.planRoute!.originId);
+      const destination = TRIP_POINTS.find((p) => p.id === s.planRoute!.destId);
+      if (origin && destination) {
+        setOriginId(origin.id);
+        setDestId(destination.id);
+        handlePlanTrip(origin, destination);
+      }
+    }
+    setAutoAsk(s.autoAsk ? { question: s.autoAsk, key: Date.now() } : null);
   };
 
   const startTour = () => {
@@ -378,18 +395,36 @@ export default function App() {
 
   const exitTour = () => {
     setTourActive(false);
+    setOutro(false);
+    setShowHeatmap(false);
+    setPlaying(false);
+    setTripOpen(false);
+    setCopilotOpen(false);
+    setTipsOpen(false);
+    setAutoAsk(null);
+    setRecoveries([]);
+    setDispatches([]);
+    setTripPlan(null);
+    setOpenPopup({ id: '', key: Date.now() });
+    setCinematic({ ...ATL, zoom: CITY.zoom, pitch: 50, bearing: -18, duration: 1800, key: Date.now() });
+  };
+
+  // Last "Finish" lands on a branded outro instead of dumping back to the map.
+  const finishTour = () => {
+    setTourActive(false);
     setShowHeatmap(false);
     setPlaying(false);
     setTripOpen(false);
     setCopilotOpen(false);
     setTipsOpen(false);
     setOpenPopup({ id: '', key: Date.now() });
-    setCinematic({ ...ATL, zoom: CITY.zoom, pitch: 50, bearing: -18, duration: 1800, key: Date.now() });
+    setCinematic({ ...ATL, zoom: CITY.zoom, pitch: 50, bearing: -18, duration: 1600, key: Date.now() });
+    setOutro(true);
   };
 
   const tourNext = () => {
     if (tourStep >= TOUR_STEPS.length - 1) {
-      exitTour();
+      finishTour();
       return;
     }
     const n = tourStep + 1;
@@ -664,6 +699,9 @@ export default function App() {
         onExit={exitTour}
       />
 
+      {/* ---------- Demo outro ---------- */}
+      <Outro open={outro} onBackToMap={exitTour} onReplay={startTour} />
+
       {/* ---------- Temporal scrubber (heatmap mode) ---------- */}
       {showHeatmap && temporal && (
         <TimeScrubber
@@ -695,7 +733,7 @@ export default function App() {
       </div>
 
       {/* ---------- Copilot dock ---------- */}
-      <CopilotDock open={copilotOpen} onOpenChange={setCopilotOpen} onAsk={handleAsk} />
+      <CopilotDock open={copilotOpen} onOpenChange={setCopilotOpen} onAsk={handleAsk} autoAsk={autoAsk} />
 
       {/* ---------- Safety tips ---------- */}
       <SafetyTips open={tipsOpen} onOpenChange={setTipsOpen} />
