@@ -10,10 +10,10 @@ export default {
         'panel-2': '#10141f',
         edge: '#1b2233',
         'edge-2': '#262f44',
-        // Signal system: amber = BikeWatch "watch" signal (chrome + caution)
-        brand: '#ffb000',
-        'brand-2': '#d99400',
-        warn: '#ffb000',
+        // Signal system: accent driven by CSS vars so it can be themed live
+        brand: 'rgb(var(--signal-rgb) / <alpha-value>)',
+        'brand-2': 'rgb(var(--signal2-rgb) / <alpha-value>)',
+        warn: 'rgb(var(--signal-rgb) / <alpha-value>)',
         // Escalation = active theft only
         danger: '#ff453a',
         // Verified safe only

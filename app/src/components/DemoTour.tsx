@@ -19,7 +19,7 @@ export default function DemoTour({ active, step, total, title, say, onPrev, onNe
       <div className="tac-panel pointer-events-auto animate-slideUp overflow-hidden">
         <div className="flex items-center justify-between border-b border-edge px-3.5 py-2">
           <div className="flex items-center gap-2">
-            <span className="h-1.5 w-1.5 rounded-full bg-brand shadow-[0_0_6px_#ffb000] animate-livePulse" />
+            <span className="h-1.5 w-1.5 rounded-full bg-brand shadow-[0_0_6px_var(--signal)] animate-livePulse" />
             <span className="font-display text-[11px] font-bold uppercase tracking-[0.16em] text-brand">
               Demo Tour
             </span>
@@ -58,7 +58,7 @@ export default function DemoTour({ active, step, total, title, say, onPrev, onNe
             </button>
             <button
               onClick={onNext}
-              className="mono flex items-center gap-1.5 bg-brand px-3.5 py-1 text-[10px] font-bold uppercase tracking-[0.12em] text-[#1a1300] transition hover:brightness-110"
+              className="mono flex items-center gap-1.5 bg-brand px-3.5 py-1 text-[10px] font-bold uppercase tracking-[0.12em] text-[color:var(--on-signal)] transition hover:brightness-110"
             >
               {isLast ? 'Finish' : 'Next'}
               {!isLast && (

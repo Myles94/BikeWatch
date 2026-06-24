@@ -88,7 +88,7 @@ export default function TripPlanner({
         <button
           onClick={plan}
           disabled={sameEndpoints || planning}
-          className="mono mt-3 flex w-full items-center justify-center gap-2 bg-brand py-2 text-[11px] font-bold uppercase tracking-[0.14em] text-[#1a1300] transition hover:bg-brand-2 disabled:opacity-40"
+          className="mono mt-3 flex w-full items-center justify-center gap-2 bg-brand py-2 text-[11px] font-bold uppercase tracking-[0.14em] text-[color:var(--on-signal)] transition hover:bg-brand-2 disabled:opacity-40"
         >
           {planning ? (
             <>

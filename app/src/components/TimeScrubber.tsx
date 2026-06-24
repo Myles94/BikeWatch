@@ -30,7 +30,7 @@ export default function TimeScrubber({
       <div className="tac-panel animate-slideUp flex items-center gap-3 px-4 py-3">
         <button
           onClick={onTogglePlay}
-          className="grid h-9 w-9 shrink-0 place-items-center bg-brand text-[#1a1300] transition hover:bg-brand-2"
+          className="grid h-9 w-9 shrink-0 place-items-center bg-brand text-[color:var(--on-signal)] transition hover:bg-brand-2"
           aria-label={playing ? 'Pause' : 'Play'}
         >
           {playing ? (
@@ -76,7 +76,7 @@ export default function TimeScrubber({
               key={d}
               onClick={() => onDayType(d)}
               className={`mono px-2.5 py-1.5 text-[9px] font-bold uppercase tracking-[0.12em] transition ${
-                sel.dayType === d ? 'bg-brand text-[#1a1300]' : 'text-slate-300 hover:bg-white/5'
+                sel.dayType === d ? 'bg-brand text-[color:var(--on-signal)]' : 'text-slate-300 hover:bg-white/5'
               }`}
             >
               {d === 'weekday' ? 'WD' : 'WE'}

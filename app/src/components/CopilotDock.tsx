@@ -103,7 +103,7 @@ export default function CopilotDock({ open, onOpenChange, onAsk, autoAsk }: Copi
               <div
                 className={
                   it.role === 'user'
-                    ? 'max-w-[85%] bg-brand px-3.5 py-2 text-[13px] font-medium text-[#1a1300]'
+                    ? 'max-w-[85%] bg-brand px-3.5 py-2 text-[13px] font-medium text-[color:var(--on-signal)]'
                     : 'max-w-[92%] border border-edge border-l-2 border-l-brand bg-white/[0.03] px-3.5 py-2.5 text-[13px] text-slate-100'
                 }
               >
@@ -161,7 +161,7 @@ export default function CopilotDock({ open, onOpenChange, onAsk, autoAsk }: Copi
             <button
               type="submit"
               disabled={!input.trim()}
-              className="grid h-7 w-7 place-items-center bg-brand text-[#1a1300] transition hover:bg-brand-2 disabled:opacity-40"
+              className="grid h-7 w-7 place-items-center bg-brand text-[color:var(--on-signal)] transition hover:bg-brand-2 disabled:opacity-40"
               aria-label="Send"
             >
               <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2"><path d="m5 12 14-7-7 14-2-5-5-2Z" /></svg>
@@ -176,7 +176,7 @@ export default function CopilotDock({ open, onOpenChange, onAsk, autoAsk }: Copi
         className={`pointer-events-auto flex items-center gap-2 border px-4 py-2.5 text-[11px] font-bold uppercase tracking-[0.14em] shadow-lg transition ${
           open
             ? 'border-edge bg-panel/90 text-slate-300 hover:text-white'
-            : 'border-brand bg-brand text-[#1a1300] hover:bg-brand-2'
+            : 'border-brand bg-brand text-[color:var(--on-signal)] hover:bg-brand-2'
         }`}
       >
         <CoreIcon />

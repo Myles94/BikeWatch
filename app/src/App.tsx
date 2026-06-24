@@ -12,7 +12,8 @@ import Outro from './components/Outro';
 import CityNetwork from './components/CityNetwork';
 import type { HeatPoint, Incident, IncidentType, RiskModel, Temporal, TripPlan, TripPoint, Zone } from './lib/types';
 import { FEATURED_REPORTS, FEATURED_SIGHTINGS, SEED_ROUTES, SEED_SAFE_ZONES, TRIP_POINTS, CITY, randomHandle } from './data/incidents';
-import { cityById } from './lib/cities';
+import { CITIES, NETWORK_TOTAL, cityById } from './lib/cities';
+import { ACCENTS, applyAccent } from './lib/theme';
 import { runCopilot } from './lib/copilot';
 import { planTrip } from './lib/routing';
 import { loadRiskData } from './lib/loadData';
@@ -43,6 +44,18 @@ interface TourStep {
 
 const PCM = { lng: -84.3636, lat: 33.7728 };
 const ATL = { lng: -84.3853, lat: 33.7701 };
+// Bird's-eye framing over the continental US for the network flyover.
+const USA_VIEW = { lng: -95.5, lat: 38.8, zoom: 3.6, pitch: 0, bearing: 0 };
+// Stable (memo-friendly) pin list for the network bird's-eye map markers.
+const CITY_PINS = CITIES.map((c) => ({
+  id: c.id,
+  short: c.short,
+  name: c.name,
+  lng: c.center[0],
+  lat: c.center[1],
+  incidents: c.incidents,
+}));
+const NO_PINS: typeof CITY_PINS = [];
 
 const TOUR_STEPS: TourStep[] = [
   // --- The hook: cut from the rider video straight to that same bike on the map ---
@@ -129,12 +142,11 @@ const TOUR_STEPS: TourStep[] = [
     heatStyle: 'hex',
   },
   {
-    title: 'Built for every city',
-    say: 'BikeWatch is not just Atlanta. Tap any city and the whole network is there. Try New York, Chicago, LA.',
-    camera: { ...ATL, zoom: 11.4, pitch: 40, bearing: 0, duration: 2000 },
+    title: 'Optimized for Atlanta, built for everywhere',
+    say: "BikeWatch is tuned for Atlanta today, but it deploys to any city. Here's the national network - tap a city to drop into its hub and see what's possible next.",
+    camera: { ...USA_VIEW, duration: 2600 },
     network: true,
-    heatmap: true,
-    heatStyle: 'blur',
+    heatmap: false,
   },
 ];
 
@@ -183,6 +195,11 @@ export default function App() {
   // Cinematic demo tour state
   const [tourActive, setTourActive] = useState(false);
   const [tourStep, setTourStep] = useState(0);
+  // Live-switchable accent theme (cycles through ACCENTS).
+  const [accentIdx, setAccentIdx] = useState(0);
+  useEffect(() => {
+    applyAccent(ACCENTS[accentIdx]);
+  }, [accentIdx]);
   const [cinematic, setCinematic] = useState<
     { lng: number; lat: number; zoom: number; pitch: number; bearing: number; duration?: number; key: number } | null
   >(null);
@@ -286,14 +303,21 @@ export default function App() {
 
   // Multi-city network view: when a non-Atlanta city is selected, swap the
   // map's incidents/heat for that city's mock network and drop ATL-only layers.
-  const networkCity = networkMode && selectedCity !== 'atl' ? cityById(selectedCity) : null;
-  const viewIncidents = networkCity ? networkCity.markers : incidents;
-  const viewHeatPoints = networkCity ? networkCity.heat : heatPoints;
-  const viewZones = networkCity ? [] : anchoredZones;
-  const viewSafeZones = networkCity ? [] : SEED_SAFE_ZONES;
-  const viewShowHeatmap = networkCity ? true : showHeatmap;
-  const viewHeatStyle: HeatStyle = networkCity ? 'blur' : heatStyle;
-  const headlineIncidents = networkCity ? networkCity.incidents : totalIncidents;
+  // Empty selection ('') is the bird's-eye national view (city pins only).
+  const networkCity = networkMode && selectedCity && selectedCity !== 'atl' ? cityById(selectedCity) : null;
+  const atBirdseye = networkMode && !selectedCity;
+  const viewIncidents = networkCity ? networkCity.markers : atBirdseye ? [] : incidents;
+  const viewHeatPoints = networkCity ? networkCity.heat : atBirdseye ? [] : heatPoints;
+  const viewZones = networkMode ? [] : anchoredZones;
+  const viewSafeZones = networkMode ? [] : SEED_SAFE_ZONES;
+  // Heatmap stays off across the network flyover (bird's-eye and city hubs).
+  const viewShowHeatmap = networkMode ? false : showHeatmap;
+  const viewHeatStyle: HeatStyle = heatStyle;
+  const headlineIncidents = networkCity
+    ? networkCity.incidents
+    : atBirdseye
+      ? NETWORK_TOTAL
+      : totalIncidents;
 
   const activeRoute = useMemo(
     () => SEED_ROUTES.find((r) => r.id === activeRouteId) ?? null,
@@ -428,10 +452,11 @@ export default function App() {
     }
     setAutoAsk(s.autoAsk ? { question: s.autoAsk, key: Date.now() } : null);
 
-    // Multi-city network mode: keep Atlanta selected; presenter taps cities.
+    // Multi-city network mode: open on the bird's-eye national view; the
+    // presenter taps a city pin (or the panel) to fly into a hub.
     if (s.network) {
       setNetworkMode(true);
-      setSelectedCity('atl');
+      setSelectedCity('');
     } else {
       setNetworkMode(false);
       setSelectedCity('atl');
@@ -454,9 +479,14 @@ export default function App() {
     }
   };
 
-  // Fly the network map to a chosen city (mock data swaps in automatically).
+  // Fly the network map to a chosen city (mock data swaps in automatically),
+  // or back out to the national bird's-eye view when id is empty.
   const handleSelectCity = (id: string) => {
     setSelectedCity(id);
+    if (!id) {
+      setCinematic({ ...USA_VIEW, duration: 2200, key: Date.now() });
+      return;
+    }
     const c = cityById(id);
     if (c) {
       setCinematic({
@@ -617,7 +647,7 @@ export default function App() {
         heatPoints={viewHeatPoints}
         zones={viewZones}
         safeZones={viewSafeZones}
-        landmarks={networkCity ? [] : landmarks}
+        landmarks={networkMode ? [] : landmarks}
         activeRoute={activeRoute}
         highlightZoneId={highlightZoneId}
         avoidHotspot={avoidHotspot}
@@ -625,6 +655,10 @@ export default function App() {
         cinematic={cinematic}
         openPopup={openPopup}
         expandBounds={networkMode}
+        cityPins={networkMode ? CITY_PINS : NO_PINS}
+        activeCityId={selectedCity}
+        onCityClick={handleSelectCity}
+        accent={ACCENTS[accentIdx]}
         showHeatmap={viewShowHeatmap}
         heatStyle={viewHeatStyle}
         riskPolygons={riskPolygons}
@@ -644,7 +678,7 @@ export default function App() {
         className="pointer-events-none absolute inset-0 z-10 opacity-[0.05]"
         style={{
           backgroundImage:
-            'linear-gradient(rgba(255,176,0,0.6) 1px, transparent 1px), linear-gradient(90deg, rgba(255,176,0,0.6) 1px, transparent 1px)',
+            'linear-gradient(rgb(var(--signal-rgb) / 0.6) 1px, transparent 1px), linear-gradient(90deg, rgb(var(--signal-rgb) / 0.6) 1px, transparent 1px)',
           backgroundSize: '64px 64px',
         }}
       />
@@ -658,7 +692,7 @@ export default function App() {
       <header className="absolute inset-x-0 top-0 z-20 flex items-start justify-between gap-3 p-4">
         {/* Wordmark - transit signage */}
         <div className="animate-bootIn flex items-center gap-3" style={{ animationDelay: '60ms' }}>
-          <span className="grid h-9 w-9 place-items-center bg-brand text-[#1a1300]">
+          <span className="grid h-9 w-9 place-items-center bg-brand text-[color:var(--on-signal)]">
             <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
               <circle cx="5.5" cy="17.5" r="3.3" />
               <circle cx="18.5" cy="17.5" r="3.3" />
@@ -692,7 +726,7 @@ export default function App() {
             onClick={() => setShowHeatmap((v) => !v)}
             className={`flex items-center gap-2 px-4 text-[11px] font-bold uppercase tracking-[0.14em] transition ${
               showHeatmap
-                ? 'bg-brand text-[#1a1300]'
+                ? 'bg-brand text-[color:var(--on-signal)]'
                 : 'text-slate-300 hover:bg-white/5 hover:text-white'
             }`}
           >
@@ -706,7 +740,7 @@ export default function App() {
             onClick={() => setTripOpen((v) => !v)}
             className={`flex items-center gap-2 px-4 text-[11px] font-bold uppercase tracking-[0.14em] transition ${
               tripOpen
-                ? 'bg-brand text-[#1a1300]'
+                ? 'bg-brand text-[color:var(--on-signal)]'
                 : 'text-slate-300 hover:bg-white/5 hover:text-white'
             }`}
           >
@@ -720,7 +754,7 @@ export default function App() {
             onClick={() => (tourActive ? exitTour() : startTour())}
             className={`flex items-center gap-2 px-4 text-[11px] font-bold uppercase tracking-[0.14em] transition ${
               tourActive
-                ? 'bg-brand text-[#1a1300]'
+                ? 'bg-brand text-[color:var(--on-signal)]'
                 : 'text-slate-300 hover:bg-white/5 hover:text-white'
             }`}
           >
@@ -728,6 +762,15 @@ export default function App() {
               <path d="m6 4 13 8-13 8V4z" />
             </svg>
             Demo
+          </button>
+          <Divider />
+          <button
+            onClick={() => setAccentIdx((i) => (i + 1) % ACCENTS.length)}
+            title="Cycle accent theme"
+            className="flex items-center gap-2 px-4 text-[11px] font-bold uppercase tracking-[0.14em] text-slate-300 transition hover:bg-white/5 hover:text-white"
+          >
+            <span className="h-3 w-3 rounded-full bg-brand shadow-[0_0_7px_var(--signal)]" />
+            {ACCENTS[accentIdx].name}
           </button>
         </div>
       </header>
@@ -940,7 +983,7 @@ function Legend({
       </div>
       {showHeatmap ? (
         <>
-          <div className="h-2 w-full bg-gradient-to-r from-safe via-brand to-danger" />
+          <div className="h-2 w-full bg-gradient-to-r from-brand/20 via-brand/60 to-brand" />
           <div className="mono mt-1.5 flex justify-between text-[8.5px] uppercase tracking-[0.12em] text-muted">
             <span>Low</span>
             <span>High</span>
@@ -953,7 +996,7 @@ function Legend({
                   key={s.id}
                   onClick={() => onHeatStyle(s.id)}
                   className={`mono py-1 text-[8.5px] font-bold uppercase tracking-[0.08em] transition ${
-                    heatStyle === s.id ? 'bg-brand text-[#1a1300]' : 'text-slate-300 hover:bg-white/5'
+                    heatStyle === s.id ? 'bg-brand text-[color:var(--on-signal)]' : 'text-slate-300 hover:bg-white/5'
                   }`}
                 >
                   {s.label}

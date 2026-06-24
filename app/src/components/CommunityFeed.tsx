@@ -65,7 +65,7 @@ const KIND_META: Record<FeedKind, { color: string; icon: ReactNode }> = {
     icon: <path d="M20 6 9 17l-5-5" />,
   },
   watch: {
-    color: '#ffb000',
+    color: 'var(--signal)',
     icon: (
       <>
         <path d="M2 12s4-7 10-7 10 7 10 7-4 7-10 7-10-7-10-7z" />

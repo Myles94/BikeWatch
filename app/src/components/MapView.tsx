@@ -2,6 +2,7 @@ import { useEffect, useRef } from 'react';
 import maplibregl from 'maplibre-gl';
 import type { HeatPoint, Incident, SafeRoute, SafeZone, TripPlan, TripPoint, Zone } from '../lib/types';
 import type { HeatStyle, RiskFC } from '../lib/heatStyles';
+import type { Accent } from '../lib/theme';
 import { CITY } from '../data/incidents';
 import { DARK_STYLE } from '../lib/mapStyle';
 
@@ -18,6 +19,10 @@ interface MapViewProps {
   cinematic: { lng: number; lat: number; zoom: number; pitch: number; bearing: number; duration?: number; key: number } | null;
   openPopup: { id: string; key: number } | null;
   expandBounds: boolean;
+  cityPins: { id: string; short: string; name: string; lng: number; lat: number; incidents: number }[];
+  activeCityId: string;
+  onCityClick: (id: string) => void;
+  accent: Accent;
   showHeatmap: boolean;
   heatStyle: HeatStyle;
   riskPolygons: RiskFC;
@@ -58,7 +63,7 @@ function tagFor(inc: Incident): { color: string; text: string } {
   if (inc.recovered) return { color: '#21d07a', text: 'RECOVERED' };
   if (inc.type === 'sighting') return { color: '#38bdf8', text: 'SIGHTED STOLEN BIKE' };
   if (inc.type === 'theft') return { color: '#ff453a', text: 'THEFT' };
-  return { color: '#ffb000', text: 'SUSPICIOUS' };
+  return { color: 'var(--signal)', text: 'SUSPICIOUS' };
 }
 
 function popupHtml(inc: Incident) {
@@ -123,6 +128,53 @@ function popupHtml(inc: Incident) {
   </div>`;
 }
 
+// Accent-driven risk heat / hex / glow colors so the heatmap retones live with
+// the chosen theme. Single-hue (accent -> bright peak) keeps it clean.
+const rgbCommas = (rgb: string) => rgb.trim().replace(/\s+/g, ',');
+function riskHeatColor(a: Accent) {
+  const c = rgbCommas(a.rgb);
+  const p = rgbCommas(a.peakRgb);
+  return [
+    'interpolate', ['linear'], ['heatmap-density'],
+    0, 'rgba(6,8,13,0)',
+    0.1, `rgba(${c},0.30)`,
+    0.3, `rgba(${c},0.55)`,
+    0.52, `rgba(${c},0.78)`,
+    0.74, `rgba(${p},0.9)`,
+    1, `rgba(${p},1)`,
+  ];
+}
+function riskFillColor(a: Accent) {
+  const c = rgbCommas(a.rgb);
+  const p = rgbCommas(a.peakRgb);
+  return [
+    'interpolate', ['linear'], ['get', 'risk'],
+    0.04, `rgba(${c},0.18)`,
+    0.3, `rgba(${c},0.42)`,
+    0.6, `rgba(${c},0.66)`,
+    1, `rgba(${p},0.9)`,
+  ];
+}
+function riskGlowColor(a: Accent) {
+  const c = rgbCommas(a.rgb);
+  const p = rgbCommas(a.peakRgb);
+  return [
+    'interpolate', ['linear'], ['get', 'risk'],
+    0.3, `rgba(${c},0.5)`,
+    1, `rgba(${p},0.95)`,
+  ];
+}
+function riskLineColor(a: Accent) {
+  const c = rgbCommas(a.rgb);
+  const p = rgbCommas(a.peakRgb);
+  return [
+    'interpolate', ['linear'], ['get', 'risk'],
+    0.04, `rgba(${c},0.55)`,
+    0.6, `rgba(${c},0.85)`,
+    1, `rgba(${p},1)`,
+  ];
+}
+
 export default function MapView({
   incidents,
   heatPoints,
@@ -136,6 +188,10 @@ export default function MapView({
   cinematic,
   openPopup,
   expandBounds,
+  cityPins,
+  activeCityId,
+  onCityClick,
+  accent,
   showHeatmap,
   heatStyle,
   riskPolygons,
@@ -156,6 +212,7 @@ export default function MapView({
   const analyticsMarkers = useRef<maplibregl.Marker[]>([]);
   const tripMarkers = useRef<maplibregl.Marker[]>([]);
   const landmarkMarkers = useRef<maplibregl.Marker[]>([]);
+  const cityPinMarkers = useRef<maplibregl.Marker[]>([]);
   const avoidMarker = useRef<maplibregl.Marker | null>(null);
   const fittedTripRef = useRef<TripPlan | null>(null);
   const pulseRef = useRef<number | null>(null);
@@ -190,6 +247,10 @@ export default function MapView({
   onMapClickRef.current = onMapClick;
   onReadyRef.current = onReady;
   onLandmarkClickRef.current = onLandmarkClick;
+  const onCityClickRef = useRef(onCityClick);
+  onCityClickRef.current = onCityClick;
+  const expandBoundsRef = useRef(expandBounds);
+  expandBoundsRef.current = expandBounds;
 
   // Bridge popup buttons (raw HTML) -> React: register a window callback that
   // always points at the latest handler.
@@ -728,6 +789,52 @@ export default function MapView({
     else map.once('bikewatch:ready', apply);
   }, [landmarks]);
 
+  // Bird's-eye network pins: highlighted, clickable city markers shown while
+  // the multi-city network mode is open. Tap one to fly into that city hub.
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map) return;
+    const apply = () => {
+      cityPinMarkers.current.forEach((m) => m.remove());
+      cityPinMarkers.current = cityPins.map((c) => {
+        const el = document.createElement('button');
+        el.className = `city-pin${c.id === activeCityId ? ' active' : ''}`;
+        el.innerHTML =
+          `<span class="cp-ring"></span><span class="cp-core"></span>` +
+          `<span class="cp-label"><b>${c.short}</b><i>${c.incidents.toLocaleString()}</i></span>`;
+        el.addEventListener('click', (ev) => {
+          ev.stopPropagation();
+          onCityClickRef.current(c.id);
+        });
+        return new maplibregl.Marker({ element: el, anchor: 'center' })
+          .setLngLat([c.lng, c.lat])
+          .addTo(map);
+      });
+    };
+    if (loadedRef.current) apply();
+    else map.once('bikewatch:ready', apply);
+  }, [cityPins, activeCityId]);
+
+  // Live accent retheme: repaint the risk heat / hex / glow + route glow to
+  // match the chosen accent without rebuilding the map.
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map) return;
+    const apply = () => {
+      const set = (id: string, prop: string, val: unknown) => {
+        if (map.getLayer(id)) map.setPaintProperty(id, prop, val as never);
+      };
+      set('incident-heat', 'heatmap-color', riskHeatColor(accent));
+      set('risk-fill', 'fill-color', riskFillColor(accent));
+      set('risk-glow', 'line-color', riskGlowColor(accent));
+      set('risk-line', 'line-color', riskLineColor(accent));
+      set('route-glow', 'line-color', accent.hex);
+      set('trip-safe-glow', 'line-color', accent.hex);
+    };
+    if (loadedRef.current) apply();
+    else map.once('bikewatch:ready', apply);
+  }, [accent]);
+
   // Fly to a requested target (landmark click)
   useEffect(() => {
     const map = mapRef.current;
@@ -742,7 +849,13 @@ export default function MapView({
   useEffect(() => {
     const map = mapRef.current;
     if (!map || !cinematic) return;
-    const fly = () =>
+    const fly = () => {
+      // When flying out for the network view, drop the Atlanta clamp first so
+      // a cross-country flight is not snapped back inside the city bounds.
+      if (expandBoundsRef.current) {
+        map.setMaxBounds(undefined);
+        map.setMinZoom(3);
+      }
       map.flyTo({
         center: [cinematic.lng, cinematic.lat],
         zoom: cinematic.zoom,
@@ -752,6 +865,7 @@ export default function MapView({
         essential: true,
         curve: 1.5,
       });
+    };
     if (loadedRef.current) fly();
     else map.once('bikewatch:ready', fly);
   }, [cinematic]);
