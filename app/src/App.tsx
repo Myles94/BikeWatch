@@ -45,6 +45,12 @@ export default function App() {
   const [avoidHotspot, setAvoidHotspot] = useState<{ lat: number; lng: number; label: string } | null>(null);
   const [mapReady, setMapReady] = useState(false);
 
+  // Community recoveries: a found-bike sighting matched to an open theft report.
+  const [recoveries, setRecoveries] = useState<
+    { theftId: string; sightingId: string; by: string; at: string }[]
+  >([]);
+  const [toast, setToast] = useState<{ title: string; sub: string } | null>(null);
+
   // Load the real-data risk layer (APD pipeline output) once.
   useEffect(() => {
     loadRiskData().then((d) => {
@@ -55,6 +61,13 @@ export default function App() {
       setModel(d.model);
     });
   }, []);
+
+  // Auto-dismiss the celebratory toast.
+  useEffect(() => {
+    if (!toast) return;
+    const t = setTimeout(() => setToast(null), 5200);
+    return () => clearTimeout(t);
+  }, [toast]);
 
   // Animate the hour while playing.
   useEffect(() => {
@@ -85,11 +98,22 @@ export default function App() {
   }, [showHeatmap]);
 
   // Hybrid: curated bike/scooter reports + community sightings on top of the
-  // real larceny sample.
-  const incidents = useMemo(
-    () => [...FEATURED_REPORTS, ...FEATURED_SIGHTINGS, ...realIncidents, ...userIncidents],
-    [realIncidents, userIncidents],
-  );
+  // real larceny sample. Community recoveries flip matched thefts to
+  // "recovered" and tag the sighting that solved them.
+  const incidents = useMemo(() => {
+    const base = [...FEATURED_REPORTS, ...FEATURED_SIGHTINGS, ...realIncidents, ...userIncidents];
+    if (recoveries.length === 0) return base;
+    const byTheft = new Map(recoveries.map((r) => [r.theftId, r]));
+    const bySighting = new Map(recoveries.map((r) => [r.sightingId, r]));
+    return base.map((inc) => {
+      const asTheft = byTheft.get(inc.id);
+      if (asTheft) return { ...inc, recovered: true, recoveredBy: asTheft.by };
+      const asSighting = bySighting.get(inc.id);
+      if (asSighting) return { ...inc, matchedTheftId: asSighting.theftId };
+      return inc;
+    });
+  }, [realIncidents, userIncidents, recoveries]);
+  const recoveredCount = recoveries.length;
   const totalIncidents = model?.nIncidents ?? incidents.length;
   const zoneCount = model?.nZones ?? zones.length;
   const highRiskCount = zones.filter((z) => z.tier === 'High').length;
@@ -116,6 +140,41 @@ export default function App() {
     setUserIncidents((prev) => [...prev, incident]);
     setModalOpen(false);
     setModalCoords(null);
+  };
+
+  // Community match: a found-bike sighting -> the nearest still-open theft.
+  const handleMatchSighting = (sightingId: string) => {
+    const sighting = incidents.find((i) => i.id === sightingId);
+    if (!sighting || recoveries.some((r) => r.sightingId === sightingId)) return;
+    const open = incidents.filter(
+      (i) => i.type === 'theft' && !i.recovered && !recoveries.some((r) => r.theftId === i.id),
+    );
+    let best: Incident | null = null;
+    let bestKm = Infinity;
+    for (const t of open) {
+      const d = haversineKm(sighting.lat, sighting.lng, t.lat, t.lng);
+      if (d < bestKm) {
+        bestKm = d;
+        best = t;
+      }
+    }
+    if (!best || bestKm > 3) {
+      setToast({
+        title: 'No open theft nearby',
+        sub: 'No matching stolen-bike report within range yet.',
+      });
+      return;
+    }
+    const by = sighting.reporter ?? '@a_rider';
+    setRecoveries((prev) => [
+      ...prev,
+      { theftId: best!.id, sightingId, by, at: new Date().toISOString() },
+    ]);
+    setFlyTarget({ lat: best.lat, lng: best.lng, key: Date.now() });
+    setToast({
+      title: 'Bike reunited with its owner',
+      sub: `${by} matched a found bike to a theft ${bestKm.toFixed(1)} km away`,
+    });
   };
 
   const handleAsk = (question: string) => {
@@ -186,6 +245,7 @@ export default function App() {
         selectedId={selectedRouteId}
         onMapClick={handleMapClick}
         onLandmarkClick={handleLandmarkClick}
+        onMatchSighting={handleMatchSighting}
         onReady={() => setMapReady(true)}
       />
 
@@ -237,6 +297,7 @@ export default function App() {
           <Stat label="Incidents" value={totalIncidents} tone="text-white" />
           <Stat label="Zones" value={zoneCount} tone="text-danger" />
           <Stat label="High risk" value={highRiskCount} tone="text-brand" />
+          {recoveredCount > 0 && <Stat label="Reunited" value={recoveredCount} tone="text-safe" />}
           <Divider />
           <button
             onClick={() => setShowHeatmap((v) => !v)}
@@ -348,12 +409,40 @@ export default function App() {
         onClose={() => setModalOpen(false)}
         onSubmit={handleSubmitReport}
       />
+
+      {/* ---------- Community recovery toast ---------- */}
+      {toast && (
+        <div className="absolute left-1/2 top-[76px] z-40 -translate-x-1/2 animate-slideUp">
+          <div className="tac-panel flex items-center gap-3 px-4 py-3">
+            <span className="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-safe/15 text-safe">
+              <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round"><path d="M20 6 9 17l-5-5" /></svg>
+            </span>
+            <div className="leading-tight">
+              <div className="font-display text-[13px] font-bold uppercase tracking-[0.08em] text-white">
+                {toast.title}
+              </div>
+              <div className="mono mt-1 text-[10px] tracking-[0.04em] text-slate-300">{toast.sub}</div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
 
 function Divider() {
   return <span className="my-2 w-px self-stretch bg-edge" />;
+}
+
+// Great-circle distance in km, for matching a sighting to a nearby theft.
+function haversineKm(aLat: number, aLng: number, bLat: number, bLng: number) {
+  const R = 6371;
+  const dLat = ((bLat - aLat) * Math.PI) / 180;
+  const dLng = ((bLng - aLng) * Math.PI) / 180;
+  const s =
+    Math.sin(dLat / 2) ** 2 +
+    Math.cos((aLat * Math.PI) / 180) * Math.cos((bLat * Math.PI) / 180) * Math.sin(dLng / 2) ** 2;
+  return 2 * R * Math.asin(Math.sqrt(s));
 }
 
 function Stat({ label, value, tone }: { label: string; value: number; tone: string }) {

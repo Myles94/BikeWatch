@@ -23,6 +23,7 @@ interface MapViewProps {
   selectedId: 'safe' | 'fast';
   onMapClick: (lng: number, lat: number) => void;
   onLandmarkClick: (point: TripPoint) => void;
+  onMatchSighting: (sightingId: string) => void;
   onReady: () => void;
 }
 
@@ -83,12 +84,25 @@ function popupHtml(inc: Incident) {
            <span>${who}</span><span>${watch}</span>
          </div>`
       : '';
+  const matchCta =
+    inc.type === 'sighting'
+      ? inc.matchedTheftId
+        ? `<div style="display:flex;align-items:center;gap:6px;width:100%;justify-content:center;background:rgba(33,208,122,0.12);border:1px solid #21d07a;color:#21d07a;font-family:${MONO};font-size:10px;letter-spacing:0.1em;text-transform:uppercase;padding:8px;margin-bottom:9px">
+             <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>
+             Reunited with owner
+           </div>`
+        : `<button onclick="window.__bwMatch&&window.__bwMatch('${inc.id}')" style="display:flex;align-items:center;gap:6px;width:100%;justify-content:center;background:#38bdf8;border:none;color:#04222e;font-family:${MONO};font-weight:700;font-size:10px;letter-spacing:0.1em;text-transform:uppercase;padding:9px;margin-bottom:9px;cursor:pointer">
+             <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M17 1l4 4-4 4"/><path d="M3 11V9a4 4 0 0 1 4-4h14"/><path d="M7 23l-4-4 4-4"/><path d="M21 13v2a4 4 0 0 1-4 4H3"/></svg>
+             Match to a stolen bike
+           </button>`
+      : '';
   return `<div style="width:288px">
     ${img}
     <div style="padding:11px 13px 13px">
       <div style="font-family:'Archivo',sans-serif;font-weight:700;font-size:15px;color:#f1f5ff;margin-bottom:6px;line-height:1.25">${inc.title}</div>
       <div style="font-size:13px;color:#c7d2ec;margin-bottom:11px;line-height:1.5">${inc.description}</div>
       ${community}
+      ${matchCta}
       <div style="display:flex;justify-content:space-between;font-family:${MONO};font-size:10px;letter-spacing:0.08em;text-transform:uppercase;color:#7c8699;border-top:1px solid #1b2233;padding-top:9px">
         <span>${inc.neighborhood ?? ''}</span>
         <span>${timeAgo(inc.timestamp)}</span>
@@ -115,6 +129,7 @@ export default function MapView({
   selectedId,
   onMapClick,
   onLandmarkClick,
+  onMatchSighting,
   onReady,
 }: MapViewProps) {
   const containerRef = useRef<HTMLDivElement>(null);
@@ -158,6 +173,18 @@ export default function MapView({
   onMapClickRef.current = onMapClick;
   onReadyRef.current = onReady;
   onLandmarkClickRef.current = onLandmarkClick;
+
+  // Bridge popup buttons (raw HTML) -> React: register a window callback that
+  // always points at the latest handler.
+  const onMatchSightingRef = useRef(onMatchSighting);
+  onMatchSightingRef.current = onMatchSighting;
+  useEffect(() => {
+    (window as unknown as { __bwMatch?: (id: string) => void }).__bwMatch = (id: string) =>
+      onMatchSightingRef.current(id);
+    return () => {
+      delete (window as unknown as { __bwMatch?: (id: string) => void }).__bwMatch;
+    };
+  }, []);
 
   // Init map once
   useEffect(() => {
