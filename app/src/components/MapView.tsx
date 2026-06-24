@@ -17,6 +17,7 @@ interface MapViewProps {
   flyTarget: { lat: number; lng: number; key: number } | null;
   cinematic: { lng: number; lat: number; zoom: number; pitch: number; bearing: number; duration?: number; key: number } | null;
   openPopup: { id: string; key: number } | null;
+  expandBounds: boolean;
   showHeatmap: boolean;
   heatStyle: HeatStyle;
   riskPolygons: RiskFC;
@@ -134,6 +135,7 @@ export default function MapView({
   flyTarget,
   cinematic,
   openPopup,
+  expandBounds,
   showHeatmap,
   heatStyle,
   riskPolygons,
@@ -772,6 +774,34 @@ export default function MapView({
     if (loadedRef.current) run();
     else map.once('bikewatch:ready', run);
   }, [openPopup]);
+
+  // Expand the camera bounds for the multi-city network flyover, then snap
+  // back to the Atlanta constraint when the network mode closes.
+  const boundsTimer = useRef<number | null>(null);
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map) return;
+    if (boundsTimer.current != null) {
+      clearTimeout(boundsTimer.current);
+      boundsTimer.current = null;
+    }
+    if (expandBounds) {
+      map.setMaxBounds(undefined);
+      map.setMinZoom(3);
+    } else {
+      // Let any in-flight flight back to Atlanta finish before re-clamping.
+      boundsTimer.current = window.setTimeout(() => {
+        map.setMinZoom(10);
+        map.setMaxBounds([
+          [-84.95, 33.42],
+          [-83.95, 34.12],
+        ]);
+      }, 1700);
+    }
+    return () => {
+      if (boundsTimer.current != null) clearTimeout(boundsTimer.current);
+    };
+  }, [expandBounds]);
 
   return <div ref={containerRef} className="h-full w-full" />;
 }

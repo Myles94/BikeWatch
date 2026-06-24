@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import type { Incident, IncidentType } from '../lib/types';
 import { pickImage, randomHandle } from '../data/incidents';
 
@@ -7,6 +7,7 @@ interface ReportModalProps {
   coords: { lat: number; lng: number } | null;
   onClose: () => void;
   onSubmit: (incident: Omit<Incident, 'id' | 'timestamp' | 'isNew'>) => void;
+  autoSubmit?: { type: IncidentType; title: string; description: string; handle: string; key: number } | null;
 }
 
 const TYPES: { value: IncidentType; label: string; hint: string; accent: string }[] = [
@@ -21,7 +22,7 @@ const DEFAULT_TITLE: Record<IncidentType, string> = {
   sighting: 'Sighted stolen bike',
 };
 
-export default function ReportModal({ open, coords, onClose, onSubmit }: ReportModalProps) {
+export default function ReportModal({ open, coords, onClose, onSubmit, autoSubmit }: ReportModalProps) {
   const [type, setType] = useState<IncidentType>('theft');
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
@@ -35,6 +36,35 @@ export default function ReportModal({ open, coords, onClose, onSubmit }: ReportM
       setHandle('');
     }
   }, [open]);
+
+  // Demo auto-report: pre-fill the form, then submit it for a hands-free flow.
+  const lastAutoRef = useRef<number | null>(null);
+  useEffect(() => {
+    if (!open || !autoSubmit || autoSubmit.key === lastAutoRef.current) return;
+    lastAutoRef.current = autoSubmit.key;
+    setType(autoSubmit.type);
+    setTitle(autoSubmit.title);
+    setDescription(autoSubmit.description);
+    setHandle(autoSubmit.handle);
+    const t = setTimeout(() => {
+      if (!coords) return;
+      const isSight = autoSubmit.type === 'sighting';
+      onSubmit({
+        type: autoSubmit.type,
+        title: autoSubmit.title,
+        description: autoSubmit.description,
+        lat: coords.lat,
+        lng: coords.lng,
+        riskWeight: autoSubmit.type === 'theft' ? 0.9 : autoSubmit.type === 'suspicious' ? 0.55 : 0,
+        neighborhood: isSight ? 'Sighted' : 'Reported',
+        imageUrl: pickImage(autoSubmit.title, 0),
+        reporter: autoSubmit.handle,
+        watchers: 1,
+      });
+    }, 1600);
+    return () => clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, autoSubmit]);
 
   if (!open) return null;
 

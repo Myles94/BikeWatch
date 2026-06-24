@@ -9,8 +9,10 @@ import CommunityFeed from './components/CommunityFeed';
 import DispatchConsole, { type Dispatch } from './components/DispatchConsole';
 import DemoTour from './components/DemoTour';
 import Outro from './components/Outro';
-import type { HeatPoint, Incident, RiskModel, Temporal, TripPlan, TripPoint, Zone } from './lib/types';
+import CityNetwork from './components/CityNetwork';
+import type { HeatPoint, Incident, IncidentType, RiskModel, Temporal, TripPlan, TripPoint, Zone } from './lib/types';
 import { FEATURED_REPORTS, FEATURED_SIGHTINGS, SEED_ROUTES, SEED_SAFE_ZONES, TRIP_POINTS, CITY, randomHandle } from './data/incidents';
+import { cityById } from './lib/cities';
 import { runCopilot } from './lib/copilot';
 import { planTrip } from './lib/routing';
 import { loadRiskData } from './lib/loadData';
@@ -35,6 +37,8 @@ interface TourStep {
   copilot?: boolean;
   autoAsk?: string;
   tips?: boolean;
+  network?: boolean;
+  autoReport?: { lat: number; lng: number; type: IncidentType; title: string; description: string; handle: string };
 }
 
 const PCM = { lng: -84.3636, lat: 33.7728 };
@@ -75,6 +79,21 @@ const TOUR_STEPS: TourStep[] = [
     camera: { ...ATL, zoom: 12.8, pitch: 50, bearing: -8 },
   },
   {
+    title: 'Report in seconds',
+    say: 'Spot something? Anyone can drop a report in seconds, and it instantly sharpens the live risk map.',
+    camera: { lng: -84.385, lat: 33.78, zoom: 14.0, pitch: 50, bearing: -6, duration: 1700 },
+    heatmap: true,
+    heatStyle: 'blur',
+    autoReport: {
+      lat: 33.7802,
+      lng: -84.3851,
+      type: 'theft',
+      title: 'Bike stolen outside the gym',
+      description: 'U-lock cut in broad daylight off Peachtree. Sharing so other riders steer clear.',
+      handle: '@you_atl',
+    },
+  },
+  {
     title: 'Lock it down',
     say: 'Every rider gets quick, practical tips to keep their bike from becoming the next report.',
     camera: { ...ATL, zoom: 12.8, pitch: 50, bearing: -6 },
@@ -108,6 +127,14 @@ const TOUR_STEPS: TourStep[] = [
     autoAsk: 'Is my area safe right now?',
     heatmap: true,
     heatStyle: 'hex',
+  },
+  {
+    title: 'Built for every city',
+    say: 'BikeWatch is not just Atlanta. Tap any city and the whole network is there. Try New York, Chicago, LA.',
+    camera: { ...ATL, zoom: 11.4, pitch: 40, bearing: 0, duration: 2000 },
+    network: true,
+    heatmap: true,
+    heatStyle: 'blur',
   },
 ];
 
@@ -162,6 +189,11 @@ export default function App() {
   const [openPopup, setOpenPopup] = useState<{ id: string; key: number } | null>(null);
   const [autoAsk, setAutoAsk] = useState<{ question: string; key: number } | null>(null);
   const [outro, setOutro] = useState(false);
+  const [networkMode, setNetworkMode] = useState(false);
+  const [selectedCity, setSelectedCity] = useState('atl');
+  const [autoReport, setAutoReport] = useState<
+    { type: IncidentType; title: string; description: string; handle: string; key: number } | null
+  >(null);
 
   // Load the real-data risk layer (APD pipeline output) once.
   useEffect(() => {
@@ -251,6 +283,17 @@ export default function App() {
   const totalIncidents = model?.nIncidents ?? incidents.length;
   const zoneCount = model?.nZones ?? zones.length;
   const highRiskCount = zones.filter((z) => z.tier === 'High').length;
+
+  // Multi-city network view: when a non-Atlanta city is selected, swap the
+  // map's incidents/heat for that city's mock network and drop ATL-only layers.
+  const networkCity = networkMode && selectedCity !== 'atl' ? cityById(selectedCity) : null;
+  const viewIncidents = networkCity ? networkCity.markers : incidents;
+  const viewHeatPoints = networkCity ? networkCity.heat : heatPoints;
+  const viewZones = networkCity ? [] : anchoredZones;
+  const viewSafeZones = networkCity ? [] : SEED_SAFE_ZONES;
+  const viewShowHeatmap = networkCity ? true : showHeatmap;
+  const viewHeatStyle: HeatStyle = networkCity ? 'blur' : heatStyle;
+  const headlineIncidents = networkCity ? networkCity.incidents : totalIncidents;
 
   const activeRoute = useMemo(
     () => SEED_ROUTES.find((r) => r.id === activeRouteId) ?? null,
@@ -368,6 +411,7 @@ export default function App() {
     setCopilotOpen(!!s.copilot);
     setTipsOpen(!!s.tips);
     setReportMode(false);
+    setFeedOpen(true);
     setOpenPopup({ id: s.popupId ?? '', key: Date.now() });
     if (s.camera) setCinematic({ ...s.camera, key: Date.now() });
     if (s.clearDispatch) setDispatches([]);
@@ -383,11 +427,54 @@ export default function App() {
       }
     }
     setAutoAsk(s.autoAsk ? { question: s.autoAsk, key: Date.now() } : null);
+
+    // Multi-city network mode: keep Atlanta selected; presenter taps cities.
+    if (s.network) {
+      setNetworkMode(true);
+      setSelectedCity('atl');
+    } else {
+      setNetworkMode(false);
+      setSelectedCity('atl');
+    }
+
+    // Auto-report: open the report modal pre-filled and let it submit itself.
+    if (s.autoReport) {
+      setModalCoords({ lat: s.autoReport.lat, lng: s.autoReport.lng });
+      setModalOpen(true);
+      setAutoReport({
+        type: s.autoReport.type,
+        title: s.autoReport.title,
+        description: s.autoReport.description,
+        handle: s.autoReport.handle,
+        key: Date.now(),
+      });
+    } else {
+      setModalOpen(false);
+      setAutoReport(null);
+    }
+  };
+
+  // Fly the network map to a chosen city (mock data swaps in automatically).
+  const handleSelectCity = (id: string) => {
+    setSelectedCity(id);
+    const c = cityById(id);
+    if (c) {
+      setCinematic({
+        lng: c.center[0],
+        lat: c.center[1],
+        zoom: c.zoom,
+        pitch: 45,
+        bearing: 0,
+        duration: 2600,
+        key: Date.now(),
+      });
+    }
   };
 
   const startTour = () => {
     setRecoveries([]);
     setDispatches([]);
+    setUserIncidents([]);
     setTourActive(true);
     setTourStep(0);
     applyTourStep(0);
@@ -401,9 +488,16 @@ export default function App() {
     setTripOpen(false);
     setCopilotOpen(false);
     setTipsOpen(false);
+    setFeedOpen(false);
+    setReportMode(false);
+    setModalOpen(false);
+    setAutoReport(null);
+    setNetworkMode(false);
+    setSelectedCity('atl');
     setAutoAsk(null);
     setRecoveries([]);
     setDispatches([]);
+    setUserIncidents([]);
     setTripPlan(null);
     setOpenPopup({ id: '', key: Date.now() });
     setCinematic({ ...ATL, zoom: CITY.zoom, pitch: 50, bearing: -18, duration: 1800, key: Date.now() });
@@ -417,6 +511,12 @@ export default function App() {
     setTripOpen(false);
     setCopilotOpen(false);
     setTipsOpen(false);
+    setFeedOpen(false);
+    setReportMode(false);
+    setModalOpen(false);
+    setAutoReport(null);
+    setNetworkMode(false);
+    setSelectedCity('atl');
     setOpenPopup({ id: '', key: Date.now() });
     setCinematic({ ...ATL, zoom: CITY.zoom, pitch: 50, bearing: -18, duration: 1600, key: Date.now() });
     setOutro(true);
@@ -513,19 +613,20 @@ export default function App() {
   return (
     <div className="relative h-full w-full overflow-hidden bg-ink">
       <MapView
-        incidents={incidents}
-        heatPoints={heatPoints}
-        zones={anchoredZones}
-        safeZones={SEED_SAFE_ZONES}
-        landmarks={landmarks}
+        incidents={viewIncidents}
+        heatPoints={viewHeatPoints}
+        zones={viewZones}
+        safeZones={viewSafeZones}
+        landmarks={networkCity ? [] : landmarks}
         activeRoute={activeRoute}
         highlightZoneId={highlightZoneId}
         avoidHotspot={avoidHotspot}
         flyTarget={flyTarget}
         cinematic={cinematic}
         openPopup={openPopup}
-        showHeatmap={showHeatmap}
-        heatStyle={heatStyle}
+        expandBounds={networkMode}
+        showHeatmap={viewShowHeatmap}
+        heatStyle={viewHeatStyle}
         riskPolygons={riskPolygons}
         trip={tripPlan}
         tripVisible={tripOpen}
@@ -582,7 +683,7 @@ export default function App() {
         >
           <Clock />
           <Divider />
-          <Stat label="Incidents" value={totalIncidents} tone="text-white" />
+          <Stat label="Incidents" value={headlineIncidents} tone="text-white" />
           <Stat label="Zones" value={zoneCount} tone="text-danger" />
           <Stat label="High risk" value={highRiskCount} tone="text-brand" />
           {recoveredCount > 0 && <Stat label="Reunited" value={recoveredCount} tone="text-safe" />}
@@ -743,7 +844,11 @@ export default function App() {
         coords={modalCoords}
         onClose={() => setModalOpen(false)}
         onSubmit={handleSubmitReport}
+        autoSubmit={autoReport}
       />
+
+      {/* ---------- Multi-city network ---------- */}
+      <CityNetwork open={networkMode} selectedId={selectedCity} onSelect={handleSelectCity} />
 
       {/* ---------- Community recovery toast ---------- */}
       {toast && !tourActive && (
