@@ -1,11 +1,13 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import MapView from './components/MapView';
 import CopilotDock from './components/CopilotDock';
+import SafetyTips from './components/SafetyTips';
 import ReportModal from './components/ReportModal';
 import TripPlanner from './components/TripPlanner';
 import TimeScrubber from './components/TimeScrubber';
 import CommunityFeed from './components/CommunityFeed';
 import DispatchConsole, { type Dispatch } from './components/DispatchConsole';
+import DemoTour from './components/DemoTour';
 import type { HeatPoint, Incident, RiskModel, Temporal, TripPlan, TripPoint, Zone } from './lib/types';
 import { FEATURED_REPORTS, FEATURED_SIGHTINGS, SEED_ROUTES, SEED_SAFE_ZONES, TRIP_POINTS, CITY, randomHandle } from './data/incidents';
 import { runCopilot } from './lib/copilot';
@@ -14,6 +16,89 @@ import { loadRiskData } from './lib/loadData';
 import { anchorZonesToHotspots, reportHeatPoints } from './lib/geo';
 import { type DayType, nowSelection, weightedHeatPoints } from './lib/temporal';
 import { type HeatStyle, HEAT_STYLES, buildRiskPolygons } from './lib/heatStyles';
+
+// ---- Cinematic demo tour: scripted camera + feature walkthrough ----
+interface TourStep {
+  title: string;
+  say: string;
+  camera: { lng: number; lat: number; zoom: number; pitch: number; bearing: number; duration?: number };
+  heatmap?: boolean;
+  heatStyle?: HeatStyle;
+  play?: boolean;
+  popupId?: string;
+  escalateId?: string;
+  matchId?: string;
+  trip?: boolean;
+  copilot?: boolean;
+}
+
+const PCM = { lng: -84.3636, lat: 33.7728 };
+const MIDTOWN = { lng: -84.3832, lat: 33.7815 };
+const ATL = { lng: -84.3853, lat: 33.7701 };
+
+const TOUR_STEPS: TourStep[] = [
+  {
+    title: 'Live theft map · Atlanta',
+    say: 'This is BikeWatch - a live risk map built from 1,600 real Atlanta PD theft reports.',
+    camera: { ...ATL, zoom: 12.6, pitch: 48, bearing: -18, duration: 2200 },
+  },
+  {
+    title: 'Predictive hotspots',
+    say: 'Our model learned where thefts cluster - its top 5% of hotspots caught a third of the next thefts, about 7× better than chance.',
+    camera: { ...ATL, zoom: 12.9, pitch: 52, bearing: -10 },
+    heatmap: true,
+    heatStyle: 'blur',
+  },
+  {
+    title: 'Risk by time of day',
+    say: 'And risk breathes by the hour - late at night, these corridors light up.',
+    camera: { ...ATL, zoom: 13.0, pitch: 54, bearing: 0 },
+    heatmap: true,
+    play: true,
+  },
+  {
+    title: 'A rider spots the bike',
+    say: 'That same Cannondale from the intro? A rider just spotted it on the BeltLine and flagged it.',
+    camera: { ...PCM, zoom: 15.4, pitch: 56, bearing: 12 },
+    popupId: 'sight-demo',
+  },
+  {
+    title: 'The community is watching',
+    say: 'Over a hundred riders are watching this map in real time - neighbors looking out for neighbors.',
+    camera: { ...PCM, zoom: 15.0, pitch: 54, bearing: -6 },
+    popupId: 'sight-demo',
+  },
+  {
+    title: 'One tap to APD dispatch',
+    say: 'One tap hands it to APD dispatch - submitted, acknowledged, officer responding.',
+    camera: { ...PCM, zoom: 14.7, pitch: 52, bearing: 0 },
+    popupId: 'sight-demo',
+    escalateId: 'sight-demo',
+  },
+  {
+    title: 'Reunited with its owner',
+    say: 'Because another rider reported it stolen, BikeWatch links them and gets the bike home.',
+    camera: { ...PCM, zoom: 15.2, pitch: 56, bearing: 8 },
+    matchId: 'sight-demo',
+  },
+  {
+    title: 'Safe vs fast routing',
+    say: "It's prevention too - a safe route home that actively steers around the worst theft zones.",
+    camera: { ...MIDTOWN, zoom: 13.4, pitch: 50, bearing: -12 },
+    trip: true,
+  },
+  {
+    title: 'Ask BikeWatch',
+    say: "Ask 'is my area safe right now?' and it answers from real data - live counts and the nearest safe place to lock up.",
+    camera: { ...ATL, zoom: 13.0, pitch: 48, bearing: -8 },
+    copilot: true,
+  },
+  {
+    title: 'Every rider a lookout',
+    say: 'From a stolen bike in a video to a recovered bike on the map. BikeWatch turns every rider into a lookout.',
+    camera: { ...ATL, zoom: 12.4, pitch: 48, bearing: -18, duration: 2400 },
+  },
+];
 
 export default function App() {
   const [realIncidents, setRealIncidents] = useState<Incident[]>([]);
@@ -26,6 +111,7 @@ export default function App() {
   const [showHeatmap, setShowHeatmap] = useState(false);
   const [heatStyle, setHeatStyle] = useState<HeatStyle>('blur');
   const [copilotOpen, setCopilotOpen] = useState(false);
+  const [tipsOpen, setTipsOpen] = useState(false);
 
   // Temporal scrubber state
   const [time, setTime] = useState(nowSelection);
@@ -55,6 +141,14 @@ export default function App() {
   const [toast, setToast] = useState<{ title: string; sub: string } | null>(null);
   const [feedOpen, setFeedOpen] = useState(true);
   const [dispatches, setDispatches] = useState<Dispatch[]>([]);
+
+  // Cinematic demo tour state
+  const [tourActive, setTourActive] = useState(false);
+  const [tourStep, setTourStep] = useState(0);
+  const [cinematic, setCinematic] = useState<
+    { lng: number; lat: number; zoom: number; pitch: number; bearing: number; duration?: number; key: number } | null
+  >(null);
+  const [openPopup, setOpenPopup] = useState<{ id: string; key: number } | null>(null);
 
   // Load the real-data risk layer (APD pipeline output) once.
   useEffect(() => {
@@ -242,6 +336,85 @@ export default function App() {
   const handleDismissDispatch = (id: string) =>
     setDispatches((prev) => prev.filter((d) => d.id !== id));
 
+  // ---- Cinematic demo tour driver ----
+  const applyTourStep = (i: number) => {
+    const s = TOUR_STEPS[i];
+    if (!s) return;
+    setShowHeatmap(!!s.heatmap);
+    if (s.heatStyle) setHeatStyle(s.heatStyle);
+    if (s.play) {
+      setTime({ dayType: 'weekday', hour: 22 });
+      setPlaying(true);
+    } else {
+      setPlaying(false);
+    }
+    setTripOpen(!!s.trip);
+    setCopilotOpen(!!s.copilot);
+    setReportMode(false);
+    setOpenPopup({ id: s.popupId ?? '', key: Date.now() });
+    setCinematic({ ...s.camera, key: Date.now() });
+    if (s.escalateId) handleEscalate(s.escalateId);
+    if (s.matchId) handleMatchSighting(s.matchId);
+  };
+
+  const startTour = () => {
+    setRecoveries([]);
+    setDispatches([]);
+    setTourActive(true);
+    setTourStep(0);
+    applyTourStep(0);
+  };
+
+  const exitTour = () => {
+    setTourActive(false);
+    setShowHeatmap(false);
+    setPlaying(false);
+    setTripOpen(false);
+    setCopilotOpen(false);
+    setOpenPopup({ id: '', key: Date.now() });
+    setCinematic({ ...ATL, zoom: CITY.zoom, pitch: 50, bearing: -18, duration: 1800, key: Date.now() });
+  };
+
+  const tourNext = () => {
+    if (tourStep >= TOUR_STEPS.length - 1) {
+      exitTour();
+      return;
+    }
+    const n = tourStep + 1;
+    setTourStep(n);
+    applyTourStep(n);
+  };
+
+  const tourPrev = () => {
+    if (tourStep <= 0) return;
+    const n = tourStep - 1;
+    setTourStep(n);
+    applyTourStep(n);
+  };
+
+  // Keyboard control while the tour is active (ignore typing in inputs).
+  useEffect(() => {
+    if (!tourActive) return;
+    const onKey = (e: KeyboardEvent) => {
+      const tag = (e.target as HTMLElement | null)?.tagName;
+      if (tag === 'INPUT' || tag === 'TEXTAREA') return;
+      if (e.key === 'ArrowRight' || e.key === ' ') {
+        e.preventDefault();
+        tourNext();
+      } else if (e.key === 'ArrowLeft') {
+        e.preventDefault();
+        tourPrev();
+      } else if (e.key === 'Escape') {
+        e.preventDefault();
+        exitTour();
+      }
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+    // tourNext/tourPrev are re-created each render; re-bind on step change.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tourActive, tourStep]);
+
   const handleAsk = (question: string) => {
     const origin = { lat: CITY.center[1], lng: CITY.center[0], label: 'your location' };
     const res = runCopilot(question, {
@@ -302,6 +475,8 @@ export default function App() {
         highlightZoneId={highlightZoneId}
         avoidHotspot={avoidHotspot}
         flyTarget={flyTarget}
+        cinematic={cinematic}
+        openPopup={openPopup}
         showHeatmap={showHeatmap}
         heatStyle={heatStyle}
         riskPolygons={riskPolygons}
@@ -392,6 +567,20 @@ export default function App() {
             </svg>
             Route
           </button>
+          <Divider />
+          <button
+            onClick={() => (tourActive ? exitTour() : startTour())}
+            className={`flex items-center gap-2 px-4 text-[11px] font-bold uppercase tracking-[0.14em] transition ${
+              tourActive
+                ? 'bg-brand text-[#1a1300]'
+                : 'text-slate-300 hover:bg-white/5 hover:text-white'
+            }`}
+          >
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="m6 4 13 8-13 8V4z" />
+            </svg>
+            Demo
+          </button>
         </div>
       </header>
 
@@ -451,6 +640,18 @@ export default function App() {
         onDismiss={handleDismissDispatch}
       />
 
+      {/* ---------- Cinematic demo tour ---------- */}
+      <DemoTour
+        active={tourActive}
+        step={tourStep}
+        total={TOUR_STEPS.length}
+        title={TOUR_STEPS[tourStep]?.title ?? ''}
+        say={TOUR_STEPS[tourStep]?.say ?? ''}
+        onPrev={tourPrev}
+        onNext={tourNext}
+        onExit={exitTour}
+      />
+
       {/* ---------- Temporal scrubber (heatmap mode) ---------- */}
       {showHeatmap && temporal && (
         <TimeScrubber
@@ -484,6 +685,9 @@ export default function App() {
       {/* ---------- Copilot dock ---------- */}
       <CopilotDock open={copilotOpen} onOpenChange={setCopilotOpen} onAsk={handleAsk} />
 
+      {/* ---------- Safety tips ---------- */}
+      <SafetyTips open={tipsOpen} onOpenChange={setTipsOpen} />
+
       <ReportModal
         open={modalOpen}
         coords={modalCoords}
@@ -492,7 +696,7 @@ export default function App() {
       />
 
       {/* ---------- Community recovery toast ---------- */}
-      {toast && (
+      {toast && !tourActive && (
         <div className="absolute left-1/2 top-[76px] z-40 -translate-x-1/2 animate-slideUp">
           <div className="tac-panel flex items-center gap-3 px-4 py-3">
             <span className="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-safe/15 text-safe">

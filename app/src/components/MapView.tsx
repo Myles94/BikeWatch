@@ -15,6 +15,8 @@ interface MapViewProps {
   highlightZoneId: string | null;
   avoidHotspot: { lat: number; lng: number; label: string } | null;
   flyTarget: { lat: number; lng: number; key: number } | null;
+  cinematic: { lng: number; lat: number; zoom: number; pitch: number; bearing: number; duration?: number; key: number } | null;
+  openPopup: { id: string; key: number } | null;
   showHeatmap: boolean;
   heatStyle: HeatStyle;
   riskPolygons: RiskFC;
@@ -130,6 +132,8 @@ export default function MapView({
   highlightZoneId,
   avoidHotspot,
   flyTarget,
+  cinematic,
+  openPopup,
   showHeatmap,
   heatStyle,
   riskPolygons,
@@ -145,6 +149,7 @@ export default function MapView({
   const containerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<maplibregl.Map | null>(null);
   const incidentMarkers = useRef<maplibregl.Marker[]>([]);
+  const incidentMarkerMap = useRef<Map<string, maplibregl.Marker>>(new Map());
   const zoneMarkers = useRef<maplibregl.Marker[]>([]);
   const analyticsMarkers = useRef<maplibregl.Marker[]>([]);
   const tripMarkers = useRef<maplibregl.Marker[]>([]);
@@ -429,6 +434,7 @@ export default function MapView({
     if (!map) return;
     const apply = () => {
       incidentMarkers.current.forEach((m) => m.remove());
+      incidentMarkerMap.current.clear();
       incidentMarkers.current = incidents.map((inc) => {
         const el = document.createElement('div');
         const recovered = inc.recovered ? 'recovered' : '';
@@ -445,10 +451,12 @@ export default function MapView({
         const popup = new maplibregl.Popup({ offset: 16, closeButton: true, maxWidth: '320px' }).setHTML(
           popupHtml(inc),
         );
-        return new maplibregl.Marker({ element: el })
+        const marker = new maplibregl.Marker({ element: el })
           .setLngLat([inc.lng, inc.lat])
           .setPopup(popup)
           .addTo(map);
+        incidentMarkerMap.current.set(inc.id, marker);
+        return marker;
       });
     };
     if (loadedRef.current) apply();
@@ -727,6 +735,43 @@ export default function MapView({
     if (loadedRef.current) fly();
     else map.once('bikewatch:ready', fly);
   }, [flyTarget]);
+
+  // Cinematic camera move (demo tour) - smooth eased flight with full framing.
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map || !cinematic) return;
+    const fly = () =>
+      map.flyTo({
+        center: [cinematic.lng, cinematic.lat],
+        zoom: cinematic.zoom,
+        pitch: cinematic.pitch,
+        bearing: cinematic.bearing,
+        duration: cinematic.duration ?? 2200,
+        essential: true,
+        curve: 1.5,
+      });
+    if (loadedRef.current) fly();
+    else map.once('bikewatch:ready', fly);
+  }, [cinematic]);
+
+  // Programmatically open/close an incident popup (demo tour drives this).
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map || !openPopup) return;
+    const run = () => {
+      incidentMarkerMap.current.forEach((mk) => {
+        const p = mk.getPopup();
+        if (p && p.isOpen()) mk.togglePopup();
+      });
+      if (openPopup.id) {
+        const mk = incidentMarkerMap.current.get(openPopup.id);
+        const p = mk?.getPopup();
+        if (mk && p && !p.isOpen()) mk.togglePopup();
+      }
+    };
+    if (loadedRef.current) run();
+    else map.once('bikewatch:ready', run);
+  }, [openPopup]);
 
   return <div ref={containerRef} className="h-full w-full" />;
 }
