@@ -63,6 +63,7 @@ const TOUR_STEPS: TourStep[] = [
     say: 'And risk breathes by the hour. Late at night, these corridors light up.',
     camera: { ...ATL, zoom: 13.0, pitch: 54, bearing: 0 },
     heatmap: true,
+    heatStyle: 'hex',
     play: true,
   },
   {
