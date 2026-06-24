@@ -5,8 +5,9 @@ import ReportModal from './components/ReportModal';
 import TripPlanner from './components/TripPlanner';
 import TimeScrubber from './components/TimeScrubber';
 import CommunityFeed from './components/CommunityFeed';
+import DispatchConsole, { type Dispatch } from './components/DispatchConsole';
 import type { HeatPoint, Incident, RiskModel, Temporal, TripPlan, TripPoint, Zone } from './lib/types';
-import { FEATURED_REPORTS, FEATURED_SIGHTINGS, SEED_ROUTES, SEED_SAFE_ZONES, TRIP_POINTS, CITY } from './data/incidents';
+import { FEATURED_REPORTS, FEATURED_SIGHTINGS, SEED_ROUTES, SEED_SAFE_ZONES, TRIP_POINTS, CITY, randomHandle } from './data/incidents';
 import { runCopilot } from './lib/copilot';
 import { planTrip } from './lib/routing';
 import { loadRiskData } from './lib/loadData';
@@ -52,6 +53,7 @@ export default function App() {
   >([]);
   const [toast, setToast] = useState<{ title: string; sub: string } | null>(null);
   const [feedOpen, setFeedOpen] = useState(true);
+  const [dispatches, setDispatches] = useState<Dispatch[]>([]);
 
   // Load the real-data risk layer (APD pipeline output) once.
   useEffect(() => {
@@ -188,6 +190,43 @@ export default function App() {
     });
   };
 
+  // Community escalation: hand a theft report off to APD dispatch, then walk
+  // the case through a simulated submitted -> acknowledged -> responding flow.
+  const handleEscalate = (theftId: string) => {
+    const theft = incidents.find((i) => i.id === theftId);
+    if (!theft) return;
+    if (dispatches.some((d) => d.id === theftId)) {
+      setToast({ title: 'Already with dispatch', sub: 'This report is already an active APD case.' });
+      return;
+    }
+    const caseId = `#APD-${1000 + Math.floor(Math.random() * 8999)}`;
+    const escalatedBy = randomHandle();
+    setDispatches((prev) => [
+      ...prev,
+      {
+        id: theftId,
+        caseId,
+        title: theft.title,
+        place: theft.neighborhood ?? 'Atlanta',
+        status: 'submitted',
+        escalatedBy,
+        startedAt: Date.now(),
+      },
+    ]);
+    setToast({ title: 'Escalated to APD dispatch', sub: `${caseId} relayed by the community` });
+    const advance = (to: Dispatch['status'], from: Dispatch['status']) =>
+      setDispatches((prev) =>
+        prev.map((d) => (d.id === theftId && d.status === from ? { ...d, status: to } : d)),
+      );
+    window.setTimeout(() => advance('acknowledged', 'submitted'), 2600);
+    window.setTimeout(() => advance('responding', 'acknowledged'), 6400);
+  };
+
+  const handleResolveDispatch = (id: string) =>
+    setDispatches((prev) => prev.map((d) => (d.id === id ? { ...d, status: 'resolved' } : d)));
+  const handleDismissDispatch = (id: string) =>
+    setDispatches((prev) => prev.filter((d) => d.id !== id));
+
   const handleAsk = (question: string) => {
     const origin = { lat: CITY.center[1], lng: CITY.center[0], label: 'your location' };
     const res = runCopilot(question, {
@@ -257,6 +296,7 @@ export default function App() {
         onMapClick={handleMapClick}
         onLandmarkClick={handleLandmarkClick}
         onMatchSighting={handleMatchSighting}
+        onEscalate={handleEscalate}
         onReady={() => setMapReady(true)}
       />
 
@@ -387,6 +427,13 @@ export default function App() {
         onToggle={() => setFeedOpen((v) => !v)}
         watchersBase={watchersBase}
         recovery={lastRecovery}
+      />
+
+      {/* ---------- APD dispatch console ---------- */}
+      <DispatchConsole
+        dispatches={dispatches}
+        onResolve={handleResolveDispatch}
+        onDismiss={handleDismissDispatch}
       />
 
       {/* ---------- Temporal scrubber (heatmap mode) ---------- */}

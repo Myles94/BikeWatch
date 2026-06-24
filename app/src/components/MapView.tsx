@@ -24,6 +24,7 @@ interface MapViewProps {
   onMapClick: (lng: number, lat: number) => void;
   onLandmarkClick: (point: TripPoint) => void;
   onMatchSighting: (sightingId: string) => void;
+  onEscalate: (theftId: string) => void;
   onReady: () => void;
 }
 
@@ -96,6 +97,13 @@ function popupHtml(inc: Incident) {
              Match to a stolen bike
            </button>`
       : '';
+  const escalateCta =
+    inc.type === 'theft' && !inc.recovered
+      ? `<button onclick="window.__bwEscalate&&window.__bwEscalate('${inc.id}')" style="display:flex;align-items:center;gap:6px;width:100%;justify-content:center;background:rgba(255,69,58,0.12);border:1px solid #ff453a;color:#ff453a;font-family:${MONO};font-weight:700;font-size:10px;letter-spacing:0.1em;text-transform:uppercase;padding:9px;margin-bottom:9px;cursor:pointer">
+           <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2 3 7v6c0 5 3.8 8.3 9 9 5.2-.7 9-4 9-9V7l-9-5Z"/><path d="M12 8v4"/><path d="M12 16h.01"/></svg>
+           Escalate to APD dispatch
+         </button>`
+      : '';
   return `<div style="width:288px">
     ${img}
     <div style="padding:11px 13px 13px">
@@ -103,6 +111,7 @@ function popupHtml(inc: Incident) {
       <div style="font-size:13px;color:#c7d2ec;margin-bottom:11px;line-height:1.5">${inc.description}</div>
       ${community}
       ${matchCta}
+      ${escalateCta}
       <div style="display:flex;justify-content:space-between;font-family:${MONO};font-size:10px;letter-spacing:0.08em;text-transform:uppercase;color:#7c8699;border-top:1px solid #1b2233;padding-top:9px">
         <span>${inc.neighborhood ?? ''}</span>
         <span>${timeAgo(inc.timestamp)}</span>
@@ -130,6 +139,7 @@ export default function MapView({
   onMapClick,
   onLandmarkClick,
   onMatchSighting,
+  onEscalate,
   onReady,
 }: MapViewProps) {
   const containerRef = useRef<HTMLDivElement>(null);
@@ -178,11 +188,18 @@ export default function MapView({
   // always points at the latest handler.
   const onMatchSightingRef = useRef(onMatchSighting);
   onMatchSightingRef.current = onMatchSighting;
+  const onEscalateRef = useRef(onEscalate);
+  onEscalateRef.current = onEscalate;
   useEffect(() => {
-    (window as unknown as { __bwMatch?: (id: string) => void }).__bwMatch = (id: string) =>
-      onMatchSightingRef.current(id);
+    const w = window as unknown as {
+      __bwMatch?: (id: string) => void;
+      __bwEscalate?: (id: string) => void;
+    };
+    w.__bwMatch = (id: string) => onMatchSightingRef.current(id);
+    w.__bwEscalate = (id: string) => onEscalateRef.current(id);
     return () => {
-      delete (window as unknown as { __bwMatch?: (id: string) => void }).__bwMatch;
+      delete w.__bwMatch;
+      delete w.__bwEscalate;
     };
   }, []);
 
