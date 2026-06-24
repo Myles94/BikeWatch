@@ -32,6 +32,7 @@ export default function App() {
 
   const [tripOpen, setTripOpen] = useState(false);
   const [tripPlan, setTripPlan] = useState<TripPlan | null>(null);
+  const [selectedRouteId, setSelectedRouteId] = useState<'safe' | 'fast'>('safe');
   const [planning, setPlanning] = useState(false);
   const [originId, setOriginId] = useState('tp-you');
   const [destId, setDestId] = useState('tp-dt');
@@ -137,12 +138,12 @@ export default function App() {
     setPlanning(true);
     try {
       setTripPlan(await planTrip(origin, destination, zones));
+      setSelectedRouteId('safe');
     } finally {
       setPlanning(false);
     }
   };
-  const handleSelectRoute = (id: 'safe' | 'fast') =>
-    setTripPlan((p) => (p ? { ...p, selectedId: id } : p));
+  const handleSelectRoute = (id: 'safe' | 'fast') => setSelectedRouteId(id);
   const handleClearTrip = () => setTripPlan(null);
 
   const handleLandmarkClick = (p: TripPoint) => {
@@ -170,6 +171,8 @@ export default function App() {
         flyTarget={flyTarget}
         showHeatmap={showHeatmap}
         trip={tripPlan}
+        tripVisible={tripOpen}
+        selectedId={selectedRouteId}
         onMapClick={handleMapClick}
         onLandmarkClick={handleLandmarkClick}
         onReady={() => setMapReady(true)}
@@ -286,6 +289,7 @@ export default function App() {
         originId={originId}
         destId={destId}
         trip={tripPlan}
+        selectedId={selectedRouteId}
         planning={planning}
         onOriginId={setOriginId}
         onDestId={setDestId}

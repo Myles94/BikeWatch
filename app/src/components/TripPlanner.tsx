@@ -7,6 +7,7 @@ interface TripPlannerProps {
   originId: string;
   destId: string;
   trip: TripPlan | null;
+  selectedId: 'safe' | 'fast';
   planning: boolean;
   onOriginId: (id: string) => void;
   onDestId: (id: string) => void;
@@ -22,6 +23,7 @@ export default function TripPlanner({
   originId,
   destId,
   trip,
+  selectedId,
   planning,
   onOriginId,
   onDestId,
@@ -123,7 +125,7 @@ export default function TripPlanner({
               <OptionCard
                 key={o.id}
                 option={o}
-                selected={trip.selectedId === o.id}
+                selected={selectedId === o.id}
                 onSelect={() => onSelect(o.id)}
               />
             ))}

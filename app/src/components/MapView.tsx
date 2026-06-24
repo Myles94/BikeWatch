@@ -16,6 +16,8 @@ interface MapViewProps {
   flyTarget: { lat: number; lng: number; key: number } | null;
   showHeatmap: boolean;
   trip: TripPlan | null;
+  tripVisible: boolean;
+  selectedId: 'safe' | 'fast';
   onMapClick: (lng: number, lat: number) => void;
   onLandmarkClick: (point: TripPoint) => void;
   onReady: () => void;
@@ -82,6 +84,8 @@ export default function MapView({
   flyTarget,
   showHeatmap,
   trip,
+  tripVisible,
+  selectedId,
   onMapClick,
   onLandmarkClick,
   onReady,
@@ -94,6 +98,7 @@ export default function MapView({
   const tripMarkers = useRef<maplibregl.Marker[]>([]);
   const landmarkMarkers = useRef<maplibregl.Marker[]>([]);
   const avoidMarker = useRef<maplibregl.Marker | null>(null);
+  const fittedTripRef = useRef<TripPlan | null>(null);
   const loadedRef = useRef(false);
 
   const onMapClickRef = useRef(onMapClick);
@@ -432,7 +437,9 @@ export default function MapView({
     else map.once('bikewatch:ready', fly);
   }, [avoidHotspot]);
 
-  // Trip planner: render direct + safe routes, O/D markers, emphasize selection
+  // Trip planner: render safe + fast routes, O/D markers, emphasize selection.
+  // Routes are only drawn while the planner is visible, and we only refit the
+  // camera when the plan itself changes (not on select/visibility toggles).
   useEffect(() => {
     const map = mapRef.current;
     if (!map) return;
@@ -456,9 +463,10 @@ export default function MapView({
       tripMarkers.current.forEach((m) => m.remove());
       tripMarkers.current = [];
 
-      if (!trip) {
+      if (!trip || !tripVisible) {
         directSrc.setData(lineFC([]));
         safeSrc.setData(lineFC([]));
+        fittedTripRef.current = null;
         return;
       }
 
@@ -467,7 +475,7 @@ export default function MapView({
       safeSrc.setData(lineFC(safe?.coordinates ?? []));
       directSrc.setData(lineFC(direct?.coordinates ?? []));
 
-      const safeSel = trip.selectedId === 'safe';
+      const safeSel = selectedId === 'safe';
       if (map.getLayer('trip-safe-line')) {
         map.setPaintProperty('trip-safe-line', 'line-width', safeSel ? 4.5 : 2.5);
         map.setPaintProperty('trip-safe-line', 'line-opacity', safeSel ? 1 : 0.4);
@@ -491,21 +499,21 @@ export default function MapView({
         makeEndpoint('B', true, trip.destination.lat, trip.destination.lng),
       ];
 
-      const coords = [
-        ...(safe?.coordinates ?? []),
-        ...(direct?.coordinates ?? []),
-      ];
-      if (coords.length) {
-        const bounds = coords.reduce(
-          (b, c) => b.extend(c as [number, number]),
-          new maplibregl.LngLatBounds(coords[0], coords[0]),
-        );
-        map.fitBounds(bounds, { padding: { top: 120, bottom: 90, left: 330, right: 110 }, duration: 1200, pitch: 48 });
+      if (fittedTripRef.current !== trip) {
+        const coords = [...(safe?.coordinates ?? []), ...(direct?.coordinates ?? [])];
+        if (coords.length) {
+          const bounds = coords.reduce(
+            (b, c) => b.extend(c as [number, number]),
+            new maplibregl.LngLatBounds(coords[0], coords[0]),
+          );
+          map.fitBounds(bounds, { padding: { top: 120, bottom: 90, left: 330, right: 110 }, duration: 1200, pitch: 48 });
+        }
+        fittedTripRef.current = trip;
       }
     };
     if (loadedRef.current) apply();
     else map.once('bikewatch:ready', apply);
-  }, [trip]);
+  }, [trip, tripVisible, selectedId]);
 
   // Clickable Atlanta landmarks (wayfinding) — fly + set as route origin
   useEffect(() => {
