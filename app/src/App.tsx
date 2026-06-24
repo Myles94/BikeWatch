@@ -5,7 +5,7 @@ import ReportModal from './components/ReportModal';
 import TripPlanner from './components/TripPlanner';
 import TimeScrubber from './components/TimeScrubber';
 import type { HeatPoint, Incident, RiskModel, Temporal, TripPlan, TripPoint, Zone } from './lib/types';
-import { FEATURED_REPORTS, SEED_ROUTES, SEED_SAFE_ZONES, TRIP_POINTS, CITY } from './data/incidents';
+import { FEATURED_REPORTS, FEATURED_SIGHTINGS, SEED_ROUTES, SEED_SAFE_ZONES, TRIP_POINTS, CITY } from './data/incidents';
 import { runCopilot } from './lib/copilot';
 import { planTrip } from './lib/routing';
 import { loadRiskData } from './lib/loadData';
@@ -84,9 +84,10 @@ export default function App() {
     prevHeat.current = showHeatmap;
   }, [showHeatmap]);
 
-  // Hybrid: curated bike/scooter reports on top of the real larceny sample.
+  // Hybrid: curated bike/scooter reports + community sightings on top of the
+  // real larceny sample.
   const incidents = useMemo(
-    () => [...FEATURED_REPORTS, ...realIncidents, ...userIncidents],
+    () => [...FEATURED_REPORTS, ...FEATURED_SIGHTINGS, ...realIncidents, ...userIncidents],
     [realIncidents, userIncidents],
   );
   const totalIncidents = model?.nIncidents ?? incidents.length;

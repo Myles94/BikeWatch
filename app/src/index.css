@@ -7,6 +7,7 @@
   --signal: #ffb000;
   --theft: #ff453a;
   --safe: #21d07a;
+  --found: #38bdf8;
   --ink: #06080d;
   --line: #1b2233;
   --text: #e8ecf5;
@@ -295,6 +296,31 @@ body {
   background: var(--signal);
   box-shadow: 0 0 0 1px rgba(255, 176, 0, 0.4);
 }
+.incident-marker.sighting {
+  width: 20px;
+  height: 20px;
+  border-radius: 5px;
+  background: var(--found);
+  box-shadow: 0 0 0 1px rgba(56, 189, 248, 0.45), 0 0 10px rgba(56, 189, 248, 0.55);
+  display: grid;
+  place-items: center;
+  color: #04121c;
+}
+.incident-marker.sighting svg {
+  width: 12px;
+  height: 12px;
+}
+.incident-marker.recovered {
+  background: var(--safe);
+  box-shadow: 0 0 0 1px rgba(33, 208, 122, 0.5), 0 0 10px rgba(33, 208, 122, 0.55);
+  display: grid;
+  place-items: center;
+  color: #04130a;
+}
+.incident-marker.recovered svg {
+  width: 9px;
+  height: 9px;
+}
 .incident-marker.new::after {
   content: '';
   position: absolute;
@@ -302,6 +328,11 @@ body {
   border-radius: 999px;
   border: 2px solid rgba(255, 69, 58, 0.7);
   animation: pulseRing 1.8s ease-out infinite;
+}
+.incident-marker.sighting.new::after {
+  inset: -3px;
+  border-radius: 7px;
+  border-color: rgba(56, 189, 248, 0.7);
 }
 @keyframes pulseRing {
   0% {

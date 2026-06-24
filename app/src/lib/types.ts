@@ -1,4 +1,7 @@
-export type IncidentType = 'theft' | 'suspicious';
+export type IncidentType = 'theft' | 'suspicious' | 'sighting';
+
+// PD dispatch hand-off lifecycle for a theft report
+export type DispatchStatus = 'submitted' | 'acknowledged' | 'responding' | 'resolved';
 
 export interface Incident {
   id: string;
@@ -13,6 +16,15 @@ export interface Incident {
   imageUrl?: string;
   isNew?: boolean;
   source?: string; // 'apd' | 'featured' | 'user'
+  // ---- Community / crowdsourcing ----
+  reporter?: string; // community rider handle, e.g. '@atlbikecourier'
+  watchers?: number; // riders keeping an eye out near this report
+  // ---- Found-bike sighting ----
+  matchedTheftId?: string; // sighting -> the theft report it may resolve
+  // ---- Theft recovery + PD dispatch ----
+  recovered?: boolean; // reunited with owner via a community match
+  recoveredBy?: string; // rider whose sighting led to the recovery
+  dispatch?: DispatchStatus; // APD dispatch hand-off status
 }
 
 // Real-data risk layer (from the APD pipeline)

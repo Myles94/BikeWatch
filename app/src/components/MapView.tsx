@@ -49,10 +49,15 @@ const timeAgo = (iso: string) => {
 
 const MONO = "'JetBrains Mono',ui-monospace,monospace";
 
+function tagFor(inc: Incident): { color: string; text: string } {
+  if (inc.recovered) return { color: '#21d07a', text: 'RECOVERED' };
+  if (inc.type === 'sighting') return { color: '#38bdf8', text: 'FOUND BIKE' };
+  if (inc.type === 'theft') return { color: '#ff453a', text: 'THEFT' };
+  return { color: '#ffb000', text: 'SUSPICIOUS' };
+}
+
 function popupHtml(inc: Incident) {
-  const isTheft = inc.type === 'theft';
-  const accent = isTheft ? '#ff453a' : '#ffb000';
-  const tagText = isTheft ? 'THEFT' : 'SUSPICIOUS';
+  const { color: accent, text: tagText } = tagFor(inc);
   const img = inc.imageUrl
     ? `<div style="position:relative">
          <img src="${inc.imageUrl}" alt="" style="width:100%;height:172px;object-fit:cover;display:block" />
@@ -62,11 +67,28 @@ function popupHtml(inc: Incident) {
          </div>
        </div>`
     : '';
+  const verb = inc.type === 'sighting' ? 'Spotted by' : 'Reported by';
+  const who = inc.recovered
+    ? `<span style="color:#21d07a">♺ Reunited via ${inc.recoveredBy ?? 'the community'}</span>`
+    : inc.reporter
+      ? `${verb} <span style="color:${accent}">${inc.reporter}</span>`
+      : '';
+  const watch =
+    inc.watchers && !inc.recovered
+      ? `<span style="display:inline-flex;align-items:center;gap:4px"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#7c8699" stroke-width="2"><path d="M2 12s4-7 10-7 10 7 10 7-4 7-10 7-10-7-10-7z"/><circle cx="12" cy="12" r="3"/></svg>${inc.watchers} watching</span>`
+      : '';
+  const community =
+    who || watch
+      ? `<div style="display:flex;justify-content:space-between;align-items:center;font-family:${MONO};font-size:10px;letter-spacing:0.06em;color:#9fb0d0;margin-bottom:9px">
+           <span>${who}</span><span>${watch}</span>
+         </div>`
+      : '';
   return `<div style="width:288px">
     ${img}
     <div style="padding:11px 13px 13px">
       <div style="font-family:'Archivo',sans-serif;font-weight:700;font-size:15px;color:#f1f5ff;margin-bottom:6px;line-height:1.25">${inc.title}</div>
       <div style="font-size:13px;color:#c7d2ec;margin-bottom:11px;line-height:1.5">${inc.description}</div>
+      ${community}
       <div style="display:flex;justify-content:space-between;font-family:${MONO};font-size:10px;letter-spacing:0.08em;text-transform:uppercase;color:#7c8699;border-top:1px solid #1b2233;padding-top:9px">
         <span>${inc.neighborhood ?? ''}</span>
         <span>${timeAgo(inc.timestamp)}</span>
@@ -365,9 +387,16 @@ export default function MapView({
       incidentMarkers.current.forEach((m) => m.remove());
       incidentMarkers.current = incidents.map((inc) => {
         const el = document.createElement('div');
-        el.className = `incident-marker ${inc.type === 'suspicious' ? 'suspicious' : ''} ${
-          inc.isNew ? 'new' : ''
-        }`;
+        const recovered = inc.recovered ? 'recovered' : '';
+        const kind = inc.type === 'suspicious' ? 'suspicious' : inc.type === 'sighting' ? 'sighting' : '';
+        el.className = `incident-marker ${recovered || kind} ${inc.isNew ? 'new' : ''}`;
+        if (inc.recovered) {
+          el.innerHTML =
+            '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>';
+        } else if (inc.type === 'sighting') {
+          el.innerHTML =
+            '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M2 12s4-7 10-7 10 7 10 7-4 7-10 7-10-7-10-7z"/><circle cx="12" cy="12" r="3"/></svg>';
+        }
         el.style.opacity = showHeatmap ? '0.45' : '1';
         const popup = new maplibregl.Popup({ offset: 16, closeButton: true, maxWidth: '320px' }).setHTML(
           popupHtml(inc),
