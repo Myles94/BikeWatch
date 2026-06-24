@@ -1,12 +1,10 @@
 import type { HeatPoint } from './types';
 
-export type HeatStyle = 'blur' | 'grid' | 'hex' | 'lines';
+export type HeatStyle = 'blur' | 'hex';
 
 export const HEAT_STYLES: { id: HeatStyle; label: string }[] = [
-  { id: 'blur', label: 'Blur' },
-  { id: 'grid', label: 'Grid' },
+  { id: 'blur', label: 'Blob' },
   { id: 'hex', label: 'Hex' },
-  { id: 'lines', label: 'Lines' },
 ];
 
 type Poly = [number, number][];
@@ -21,49 +19,21 @@ export interface RiskFC {
 }
 
 const EMPTY: RiskFC = { type: 'FeatureCollection', features: [] };
-const GRID_DEG = 0.0045; // ~500 m square cells
-const HEX_DEG = 0.0032; // hex size (deg)
-const MIN_RISK = 0.05; // drop near-empty cells for a clean, minimal look
+const HEX_DEG = 0.0034; // hex size (deg)
+const MIN_RISK = 0.04; // drop near-empty cells for a clean look
 
 function feature(risk: number, coords: Poly): RiskFeature {
   return { type: 'Feature', properties: { risk }, geometry: { type: 'Polygon', coordinates: [coords] } };
 }
 
-/** Square binning -> choropleth cells (used by 'grid' and 'lines'). */
-function squareFC(points: HeatPoint[]): RiskFC {
-  const cells = new Map<string, { sum: number; ix: number; iy: number }>();
-  for (const p of points) {
-    const ix = Math.floor(p.lng / GRID_DEG);
-    const iy = Math.floor(p.lat / GRID_DEG);
-    const key = `${ix},${iy}`;
-    const c = cells.get(key) ?? { sum: 0, ix, iy };
-    c.sum += p.w;
-    cells.set(key, c);
-  }
-  let max = 0;
-  cells.forEach((c) => (max = Math.max(max, c.sum)));
-  if (max <= 0) return EMPTY;
-  const features: RiskFeature[] = [];
-  cells.forEach((c) => {
-    const risk = Math.pow(c.sum / max, 0.7);
-    if (risk < MIN_RISK) return;
-    const x0 = c.ix * GRID_DEG;
-    const y0 = c.iy * GRID_DEG;
-    const x1 = x0 + GRID_DEG;
-    const y1 = y0 + GRID_DEG;
-    features.push(feature(risk, [[x0, y0], [x1, y0], [x1, y1], [x0, y1], [x0, y0]]));
-  });
-  return { type: 'FeatureCollection', features };
-}
-
-/** Pointy-top hexagonal binning. */
+/** Pointy-top hexagonal binning, with punchy contrast so danger reads loud. */
 function hexFC(points: HeatPoint[]): RiskFC {
   const size = HEX_DEG;
   const cells = new Map<string, { sum: number; q: number; r: number }>();
   const axialRound = (q: number, r: number) => {
-    let x = q;
-    let z = r;
-    let y = -x - z;
+    const x = q;
+    const z = r;
+    const y = -x - z;
     let rx = Math.round(x);
     let ry = Math.round(y);
     let rz = Math.round(z);
@@ -89,7 +59,8 @@ function hexFC(points: HeatPoint[]): RiskFC {
   if (max <= 0) return EMPTY;
   const features: RiskFeature[] = [];
   cells.forEach((c) => {
-    const risk = Math.pow(c.sum / max, 0.7);
+    // lower exponent => mid-risk hexes light up hotter (more "danger")
+    const risk = Math.pow(c.sum / max, 0.5);
     if (risk < MIN_RISK) return;
     const cx = size * Math.sqrt(3) * (c.q + c.r / 2);
     const cy = size * (3 / 2) * c.r;
@@ -106,5 +77,6 @@ function hexFC(points: HeatPoint[]): RiskFC {
 
 export function buildRiskPolygons(points: HeatPoint[], style: HeatStyle): RiskFC {
   if (style === 'blur' || !points.length) return EMPTY;
-  return style === 'hex' ? hexFC(points) : squareFC(points);
+  return hexFC(points);
 }
+

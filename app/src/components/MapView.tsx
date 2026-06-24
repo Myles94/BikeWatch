@@ -104,7 +104,31 @@ export default function MapView({
   const landmarkMarkers = useRef<maplibregl.Marker[]>([]);
   const avoidMarker = useRef<maplibregl.Marker | null>(null);
   const fittedTripRef = useRef<TripPlan | null>(null);
+  const pulseRef = useRef<number | null>(null);
   const loadedRef = useRef(false);
+
+  const stopPulse = () => {
+    if (pulseRef.current != null) {
+      cancelAnimationFrame(pulseRef.current);
+      pulseRef.current = null;
+    }
+    const map = mapRef.current;
+    if (map && map.getLayer('risk-fill')) map.setPaintProperty('risk-fill', 'fill-opacity', 1);
+  };
+  const startPulse = () => {
+    const t0 = performance.now();
+    const step = (t: number) => {
+      const map = mapRef.current;
+      if (!map || !map.getLayer('risk-fill')) {
+        pulseRef.current = null;
+        return;
+      }
+      const o = 0.84 + 0.16 * (0.5 + 0.5 * Math.sin((t - t0) / 620));
+      map.setPaintProperty('risk-fill', 'fill-opacity', o);
+      pulseRef.current = requestAnimationFrame(step);
+    };
+    pulseRef.current = requestAnimationFrame(step);
+  };
 
   const onMapClickRef = useRef(onMapClick);
   const onReadyRef = useRef(onReady);
@@ -148,7 +172,7 @@ export default function MapView({
         data: { type: 'FeatureCollection', features: [] },
       });
 
-      // Grid/hex risk polygons (shaded fill + outline) — alternate heat styles
+      // Hex risk polygons (shaded fill + neon outline) — "danger" heat style
       map.addLayer({
         id: 'risk-fill',
         type: 'fill',
@@ -157,11 +181,28 @@ export default function MapView({
         paint: {
           'fill-color': [
             'interpolate', ['linear'], ['get', 'risk'],
-            0.05, 'rgba(255,176,0,0.10)',
-            0.45, 'rgba(255,140,30,0.34)',
-            0.7, 'rgba(255,69,58,0.5)',
-            1, 'rgba(214,30,40,0.66)',
+            0.04, 'rgba(255,176,0,0.20)',
+            0.3, 'rgba(255,110,20,0.48)',
+            0.55, 'rgba(255,54,40,0.7)',
+            0.78, 'rgba(255,26,46,0.85)',
+            1, 'rgba(255,40,70,0.96)',
           ],
+        },
+      });
+      map.addLayer({
+        id: 'risk-glow',
+        type: 'line',
+        source: 'riskpoly',
+        layout: { visibility: 'none' },
+        paint: {
+          'line-color': [
+            'interpolate', ['linear'], ['get', 'risk'],
+            0.3, 'rgba(255,90,40,0.5)',
+            1, 'rgba(255,40,60,0.95)',
+          ],
+          'line-width': ['interpolate', ['linear'], ['get', 'risk'], 0.04, 1, 1, 5],
+          'line-blur': ['interpolate', ['linear'], ['get', 'risk'], 0.04, 1, 1, 6],
+          'line-opacity': ['interpolate', ['linear'], ['get', 'risk'], 0.04, 0.2, 1, 0.9],
         },
       });
       map.addLayer({
@@ -172,9 +213,9 @@ export default function MapView({
         paint: {
           'line-color': [
             'interpolate', ['linear'], ['get', 'risk'],
-            0.05, 'rgba(255,176,0,0.5)',
-            0.6, 'rgba(255,90,40,0.85)',
-            1, 'rgba(255,69,58,1)',
+            0.04, 'rgba(255,180,60,0.55)',
+            0.6, 'rgba(255,110,70,0.9)',
+            1, 'rgba(255,90,90,1)',
           ],
           'line-width': 1,
         },
@@ -348,30 +389,19 @@ export default function MapView({
     const apply = () => {
       const on = showHeatmap;
       const blur = on && heatStyle === 'blur';
-      const poly = on && heatStyle !== 'blur';
-      const lines = heatStyle === 'lines';
+      const hex = on && heatStyle === 'hex';
       const setVis = (id: string, v: boolean) => {
         if (map.getLayer(id)) map.setLayoutProperty(id, 'visibility', v ? 'visible' : 'none');
       };
       setVis('incident-heat', blur);
       setVis('safezone-heat', blur);
-      setVis('risk-fill', poly && !lines);
-      setVis('risk-line', poly);
-      if (map.getLayer('risk-line')) {
-        // 'lines' style: minimalist outlines whose weight scales with risk
-        map.setPaintProperty(
-          'risk-line',
-          'line-width',
-          lines
-            ? ['interpolate', ['linear'], ['get', 'risk'], 0.05, 0.5, 1, 3]
-            : 0.85,
-        );
-        map.setPaintProperty(
-          'risk-line',
-          'line-opacity',
-          lines ? ['interpolate', ['linear'], ['get', 'risk'], 0.05, 0.25, 1, 0.95] : 0.55,
-        );
-      }
+      setVis('risk-fill', hex);
+      setVis('risk-glow', hex);
+      setVis('risk-line', hex);
+
+      // Subtle "danger" pulse on the hex fill so high-risk cells breathe.
+      stopPulse();
+      if (hex) startPulse();
 
       analyticsMarkers.current.forEach((m) => m.remove());
       analyticsMarkers.current = [];
@@ -399,6 +429,7 @@ export default function MapView({
     };
     if (loadedRef.current) apply();
     else map.once('bikewatch:ready', apply);
+    return () => stopPulse();
   }, [showHeatmap, heatStyle, zones]);
 
   // Risk polygon data (grid/hex styles)

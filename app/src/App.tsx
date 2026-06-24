@@ -417,7 +417,7 @@ function Legend({
           </div>
           <div className="mt-3 border-t border-edge pt-2.5">
             <span className="tac-label">Style</span>
-            <div className="mt-1.5 grid grid-cols-4 border border-edge">
+            <div className="mt-1.5 grid grid-cols-2 border border-edge">
               {HEAT_STYLES.map((s) => (
                 <button
                   key={s.id}
