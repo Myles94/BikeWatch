@@ -143,7 +143,7 @@ export const FEATURED_REPORTS: Incident[] = [
   {
     id: 'feat-o4w', type: 'theft', title: 'Bike stolen near Ponce City Market',
     description: 'Taken from a street rack on the BeltLine Eastside Trail.',
-    lat: 33.7646, lng: -84.3656, timestamp: hoursAgo(20), riskWeight: 0.72,
+    lat: 33.7722, lng: -84.3640, timestamp: hoursAgo(20), riskWeight: 0.72,
     neighborhood: 'Old Fourth Ward', imageUrl: '/reports/bike-3.jpg', source: 'featured',
     reporter: '@beltline_rider', watchers: 18,
   },
@@ -169,9 +169,9 @@ export const FEATURED_REPORTS: Incident[] = [
  */
 export const FEATURED_SIGHTINGS: Incident[] = [
   {
-    id: 'sight-demo', type: 'sighting', title: 'Cannondale spotted on the BeltLine',
-    description: 'Cannondale locked to the rail near Ponce City Market on the Eastside BeltLine. Pretty sure this is the one from @beltline_rider\'s stolen-bike report — flagging it now and making an APD dispatch ASAP.',
-    lat: 33.7651, lng: -84.3658, timestamp: hoursAgo(1), riskWeight: 0,
+    id: 'sight-demo', type: 'sighting', title: 'Cannondale spotted being ridden on the BeltLine',
+    description: 'Spotted someone riding this Cannondale down the Eastside BeltLine by Ponce City Market — looks like the one from @beltline_rider\'s stolen-bike report. Following at a distance and calling APD dispatch ASAP.',
+    lat: 33.7728, lng: -84.3636, timestamp: hoursAgo(1), riskWeight: 0,
     neighborhood: 'Old Fourth Ward', imageUrl: '/reports/demo.png', source: 'featured', isNew: true,
     reporter: '@atlbikecourier', watchers: 12,
   },
