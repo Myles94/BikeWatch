@@ -1,142 +1,274 @@
 import type {
   CopilotResult,
   Incident,
+  RiskModel,
   SafeRoute,
   SafeZone,
+  Temporal,
+  Zone,
 } from './types';
-import { computeHotspots, haversineKm, nearestSafeZone } from './geo';
+import { haversineKm, nearestSafeZone } from './geo';
+import { type TimeSel, formatHour, globalMultiplier } from './temporal';
 
 export interface CopilotContext {
   origin: { lat: number; lng: number; label: string };
   incidents: Incident[];
   safeZones: SafeZone[];
   routes: SafeRoute[];
+  zones: Zone[];
+  model: RiskModel | null;
+  temporal: Temporal | null;
+  time: TimeSel;
 }
 
 export const SUGGESTED_PROMPTS = [
-  'Where is it safer to park nearby?',
-  'What areas should I avoid?',
-  "What's the safest route home?",
-  'Is it risky to lock up here right now?',
+  'Where should I park?',
+  'Riskiest areas right now?',
+  'How accurate is this model?',
+  'Where was the last theft?',
 ];
 
-type Intent = 'park' | 'avoid' | 'route' | 'risk' | 'unknown';
+type Intent =
+  | 'park'
+  | 'avoid'
+  | 'route'
+  | 'risk'
+  | 'accuracy'
+  | 'riskiest'
+  | 'recent'
+  | 'timeofday'
+  | 'unknown';
 
-function classify(question: string): Intent {
-  const q = question.toLowerCase();
-  if (/(route|ride|home|get to|cycle|commute)/.test(q)) return 'route';
-  if (/(park|lock|leave my bike|secure|store|rack)/.test(q)) {
-    if (/(risk|safe to|dangerous|here)/.test(q) && !/where|nearby|better/.test(q))
-      return 'risk';
+function classify(q: string): Intent {
+  const s = q.toLowerCase();
+  if (/(accurate|accuracy|validat|how good|reliable|trust|real data|how does|model work|prove)/.test(s))
+    return 'accuracy';
+  if (/(last|latest|recent|most recent|where was|when was)/.test(s)) return 'recent';
+  if (/(route|ride|get to|cycle|commute|cycling|bike home|way home)/.test(s)) return 'route';
+  if (/(park|lock|leave my bike|secure|store|rack)/.test(s)) {
+    if (/(risk|safe to|dangerous|here)/.test(s) && !/where|nearby|better/.test(s)) return 'risk';
     return 'park';
   }
-  if (/(avoid|danger|risky|unsafe|hotspot|bad area)/.test(q)) return 'avoid';
-  if (/(risk|safe|dangerous)/.test(q)) return 'risk';
+  if (/(riskiest|worst|most dangerous|highest risk|top (zones|areas|spots)|hotspot)/.test(s))
+    return 'riskiest';
+  if (/(avoid|danger|unsafe|bad area)/.test(s)) return 'avoid';
+  if (/(right now|tonight|this time|at night|currently|now|time of day|when is)/.test(s))
+    return 'timeofday';
+  if (/(risk|safe|dangerous|my area)/.test(s)) return 'risk';
   return 'unknown';
 }
 
-const fmtKm = (km: number) =>
-  km < 1 ? `${Math.round(km * 1000)} m` : `${km.toFixed(1)} km`;
+const fmtKm = (km: number) => (km < 1 ? `${Math.round(km * 1000)} m` : `${km.toFixed(1)} km`);
+const pct = (p: number) => `${Math.round(p * 100)}%`;
 
-export function runCopilot(
-  question: string,
-  ctx: CopilotContext,
-): CopilotResult {
+function nearestZone(ctx: CopilotContext): Zone | null {
+  if (!ctx.zones.length) return null;
+  return [...ctx.zones].sort(
+    (a, b) => haversineKm(ctx.origin, a) - haversineKm(ctx.origin, b),
+  )[0];
+}
+
+function whenLabel(ctx: CopilotContext): string {
+  return `${ctx.time.dayType} ${formatHour(ctx.time.hour)}`;
+}
+
+function timeTrend(ctx: CopilotContext): { pct: number; phrase: string } {
+  const m = globalMultiplier(ctx.temporal, ctx.time);
+  const p = Math.round((m - 1) * 100);
+  const phrase =
+    p > 12 ? `elevated (+${p}% vs the daily average)` : p < -12 ? `below average (${p}%)` : 'about average';
+  return { pct: p, phrase };
+}
+
+/** Zones ranked by their activity multiplier at the selected time. */
+function peakingNow(ctx: CopilotContext): { zone: Zone; mult: number }[] {
+  if (!ctx.temporal) return [];
+  const key = ctx.time.dayType === 'weekend' ? 'we' : 'wd';
+  return ctx.zones
+    .map((z) => {
+      const prof = ctx.temporal!.zones[z.label];
+      const mult = prof ? prof[key][ctx.time.hour] ?? 1 : 1;
+      return { zone: z, mult };
+    })
+    .sort((a, b) => b.mult - a.mult);
+}
+
+export function runCopilot(question: string, ctx: CopilotContext): CopilotResult {
   const intent = classify(question);
-  const hotspots = computeHotspots(ctx.incidents);
-  const topHotspots = hotspots.slice(0, 3);
-  const worst = topHotspots[0];
+  const top = ctx.zones.slice(0, 3);
+  const worst = top[0] ?? null;
+  const when = whenLabel(ctx);
 
   switch (intent) {
+    case 'accuracy': {
+      const v = ctx.model?.validation;
+      if (!v || !ctx.model) {
+        return {
+          question,
+          answer: "I'm scoring risk from a model trained on real Atlanta PD theft data.",
+          bullets: ['Live data is still loading — ask again in a moment.'],
+        };
+      }
+      return {
+        question,
+        answer: `This isn't a guess — it's a model trained on ${ctx.model.nIncidents.toLocaleString()} real Atlanta PD larceny reports (${ctx.model.window}). On a held-out test, its top 5% of hotspots caught ${pct(
+          v.topHotspotCapture,
+        )} of the thefts that happened next — ${v.pai}× better than chance.`,
+        bullets: [
+          `Trained on ${v.trainN.toLocaleString()} incidents through ${v.trainEnd}, tested on the ${v.testN.toLocaleString()} that came after.`,
+          `Capture curve: top 2% → ${pct(v.captureCurve['2%'])}, 10% → ${pct(
+            v.captureCurve['10%'],
+          )}, 20% → ${pct(v.captureCurve['20%'])} of future thefts.`,
+          `Method: ${ctx.model.method}. Bicycle theft has no police category, so "All Other Larceny" is used as a documented proxy.`,
+        ],
+      };
+    }
+
+    case 'riskiest': {
+      if (!top.length) break;
+      return {
+        question,
+        answer: `The highest-risk areas right now are ${top
+          .map((z) => `${z.label} (${pct(z.stolenProbability)})`)
+          .join(', ')} — all modeled from real APD report density.`,
+        bullets: top.map(
+          (z) => `${z.label}: ${pct(z.stolenProbability)} predicted theft odds · ${z.count} reports · ${z.tier} risk.`,
+        ),
+        recommendation: worst
+          ? { kind: 'avoid', avoidHotspot: { lat: worst.lat, lng: worst.lng, label: worst.label } }
+          : undefined,
+      };
+    }
+
+    case 'recent': {
+      const recent = [...ctx.incidents]
+        .filter((i) => i.timestamp)
+        .sort((a, b) => +new Date(b.timestamp) - +new Date(a.timestamp))
+        .slice(0, 3);
+      if (!recent.length) break;
+      const last = recent[0];
+      return {
+        question,
+        answer: `The most recent report was "${last.title}" in ${last.neighborhood ?? 'Atlanta'} ${ago(
+          last.timestamp,
+        )}.`,
+        bullets: recent.map(
+          (i) => `${i.neighborhood ?? 'Atlanta'}: ${i.title.toLowerCase()} · ${ago(i.timestamp)}.`,
+        ),
+      };
+    }
+
+    case 'timeofday': {
+      const trend = timeTrend(ctx);
+      const peaks = peakingNow(ctx).slice(0, 3);
+      return {
+        question,
+        answer: `At ${when}, citywide theft risk is ${trend.phrase}.${
+          peaks.length ? ` Right now ${peaks[0].zone.label} is the most active hotspot.` : ''
+        }`,
+        bullets: peaks.length
+          ? peaks.map(
+              (p) =>
+                `${p.zone.label}: ${
+                  p.mult >= 1 ? `${Math.round((p.mult - 1) * 100)}% above` : `${Math.round((1 - p.mult) * 100)}% below`
+                } its average activity at this hour.`,
+            )
+          : ['Toggle the heatmap and scrub the time slider to see risk shift by hour.'],
+        recommendation: peaks[0]
+          ? { kind: 'avoid', avoidHotspot: { lat: peaks[0].zone.lat, lng: peaks[0].zone.lng, label: peaks[0].zone.label } }
+          : undefined,
+      };
+    }
+
     case 'park': {
       const zone = nearestSafeZone(ctx.origin, ctx.safeZones);
       const dist = haversineKm(ctx.origin, zone);
+      const hot = nearestZone(ctx) ?? worst;
       return {
         question,
-        answer: `The safest nearby place to lock up is the ${zone.title}, about ${fmtKm(
-          dist,
-        )} away. ${zone.rationale}`,
+        answer: `Safest nearby parking is the ${zone.title}, about ${fmtKm(dist)} away. ${zone.rationale}`,
         bullets: [
           `Head to ${zone.title} — ${zone.description.toLowerCase()}`,
-          `Avoid street racks near ${worst.label}, the current #1 theft hotspot (${worst.count} recent reports).`,
+          hot
+            ? `Avoid street racks around ${hot.label} (${pct(hot.stolenProbability)} modeled theft odds, ${hot.count} reports).`
+            : 'Avoid isolated, unlit racks.',
           'Use a hardened U-lock through the frame and rear wheel.',
         ],
         recommendation: { kind: 'parking', safeZoneId: zone.id },
       };
     }
+
     case 'route': {
       const route = ctx.routes[0];
       return {
         question,
-        answer: `I mapped a safer route home that stays on protected paths and avoids the ${topHotspots
-          .map((h) => h.label)
+        answer: `I mapped a safer route that stays on protected paths and avoids the ${top
           .slice(0, 2)
+          .map((z) => z.label)
           .join(' and ')} hotspots.`,
         bullets: [
           `Follow the ${route.title} — ${route.description.toLowerCase()}`,
-          `It detours around ${worst.label}, where ${worst.count} thefts were reported recently.`,
-          'Well-lit, higher-traffic segments reduce snatch-and-grab risk.',
+          worst ? `It detours around ${worst.label} (${pct(worst.stolenProbability)} theft odds).` : 'It favors lit, higher-traffic streets.',
+          'Open the Route planner for a full safest-vs-direct comparison with safety scores.',
         ],
         recommendation: { kind: 'route', routeId: route.id },
       };
     }
+
     case 'avoid': {
+      if (!top.length) break;
       return {
         question,
-        answer: `Right now the highest-risk areas are ${topHotspots
-          .map((h) => h.label)
-          .join(', ')}. I'd avoid leaving a bike unattended in these zones.`,
-        bullets: topHotspots.map(
-          (h) =>
-            `${h.label}: ${h.count} recent reports, risk score ${h.score.toFixed(
-              1,
-            )}.`,
-        ),
+        answer: `Avoid leaving a bike unattended in ${top.map((z) => z.label).join(', ')} — the model's top theft zones from real APD data.`,
+        bullets: top.map((z) => `${z.label}: ${pct(z.stolenProbability)} theft odds · ${z.count} reports · ${z.tier} risk.`),
         recommendation: worst
-          ? {
-              kind: 'avoid',
-              avoidHotspot: { lat: worst.lat, lng: worst.lng, label: worst.label },
-            }
+          ? { kind: 'avoid', avoidHotspot: { lat: worst.lat, lng: worst.lng, label: worst.label } }
           : undefined,
       };
     }
+
     case 'risk': {
-      // Risk at the current origin location
-      const nearby = ctx.incidents
-        .map((i) => ({ i, d: haversineKm(ctx.origin, i) }))
-        .filter((x) => x.d < 0.6)
-        .sort((a, b) => a.d - b.d);
-      const high = nearby.length >= 3;
-      const zone = nearestSafeZone(ctx.origin, ctx.safeZones);
+      const zone = nearestZone(ctx);
+      const safe = nearestSafeZone(ctx.origin, ctx.safeZones);
+      const trend = timeTrend(ctx);
+      if (!zone) break;
+      const high = zone.tier === 'High';
       return {
         question,
-        answer: high
-          ? `Yes — this spot is risky. There are ${nearby.length} theft reports within 600 m of ${ctx.origin.label}. Consider the ${zone.title} instead.`
-          : `This area looks relatively low-risk right now, but stay cautious near ${worst.label}.`,
-        bullets: high
-          ? [
-              `${nearby.length} incidents within 600 m, closest just ${fmtKm(
-                nearby[0].d,
-              )} away.`,
-              `Safer alternative: ${zone.title} (${zone.rationale.toLowerCase()})`,
-              'If you must lock here, pick a busy, well-lit rack and use two locks.',
-            ]
-          : [
-              'Few recent reports in your immediate area.',
-              'Still use a U-lock and avoid isolated racks.',
-              `Closest hotspot is ${worst.label}.`,
-            ],
-        recommendation: high
-          ? { kind: 'parking', safeZoneId: zone.id }
-          : undefined,
-      };
-    }
-    default: {
-      return {
-        question,
-        answer: `I'm your biking safety copilot. I can flag theft hotspots, find safer parking, and route you around danger. Right now ${worst.label} is the #1 hotspot.`,
-        bullets: SUGGESTED_PROMPTS.map((p) => `Try: "${p}"`),
+        answer: `Your area maps to ${zone.label}: ${pct(zone.stolenProbability)} modeled theft odds (${zone.tier} risk, ${zone.count} reports). At ${when}, citywide risk is ${trend.phrase}.`,
+        bullets: [
+          high
+            ? `${zone.label} is among the city's worst — don't leave a bike here unattended.`
+            : `${zone.label} is moderate, but stay cautious near busier blocks.`,
+          `Safer alternative: ${safe.title} (${fmtKm(haversineKm(ctx.origin, safe))} away).`,
+          'Use two locks and pick a lit, high-traffic rack.',
+        ],
+        recommendation: high ? { kind: 'parking', safeZoneId: safe.id } : undefined,
       };
     }
   }
+
+  // Fallback / unknown
+  const v = ctx.model?.validation;
+  return {
+    question,
+    answer: worst
+      ? `I'm your theft-intelligence copilot, scoring risk from ${ctx.model?.nIncidents.toLocaleString() ?? 'real'} Atlanta PD reports. Right now ${worst.label} is the #1 risk zone (${pct(
+          worst.stolenProbability,
+        )}).`
+      : "I'm your theft-intelligence copilot. Ask me where to park, what to avoid, or how the model works.",
+    bullets: v
+      ? [
+          `Model validated at ${v.pai}× better than chance on held-out data.`,
+          ...SUGGESTED_PROMPTS.map((p) => `Try: "${p}"`),
+        ]
+      : SUGGESTED_PROMPTS.map((p) => `Try: "${p}"`),
+  };
+}
+
+function ago(iso: string): string {
+  const h = Math.round((Date.now() - new Date(iso).getTime()) / 3600_000);
+  if (h < 1) return 'in the last hour';
+  if (h < 24) return `${h}h ago`;
+  return `${Math.round(h / 24)}d ago`;
 }

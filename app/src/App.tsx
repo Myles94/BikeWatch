@@ -3,21 +3,28 @@ import MapView from './components/MapView';
 import CopilotDock from './components/CopilotDock';
 import ReportModal from './components/ReportModal';
 import TripPlanner from './components/TripPlanner';
-import type { HeatPoint, Incident, RiskModel, TripPlan, TripPoint, Zone } from './lib/types';
+import TimeScrubber from './components/TimeScrubber';
+import type { HeatPoint, Incident, RiskModel, Temporal, TripPlan, TripPoint, Zone } from './lib/types';
 import { FEATURED_REPORTS, SEED_ROUTES, SEED_SAFE_ZONES, TRIP_POINTS, CITY } from './data/incidents';
 import { runCopilot } from './lib/copilot';
 import { planTrip } from './lib/routing';
 import { loadRiskData } from './lib/loadData';
+import { type DayType, nowSelection, weightedHeatPoints } from './lib/temporal';
 
 export default function App() {
   const [realIncidents, setRealIncidents] = useState<Incident[]>([]);
   const [userIncidents, setUserIncidents] = useState<Incident[]>([]);
-  const [heatPoints, setHeatPoints] = useState<HeatPoint[]>([]);
+  const [rawHeatPoints, setRawHeatPoints] = useState<HeatPoint[]>([]);
   const [zones, setZones] = useState<Zone[]>([]);
+  const [temporal, setTemporal] = useState<Temporal | null>(null);
   const [model, setModel] = useState<RiskModel | null>(null);
 
   const [showHeatmap, setShowHeatmap] = useState(false);
   const [copilotOpen, setCopilotOpen] = useState(false);
+
+  // Temporal scrubber state
+  const [time, setTime] = useState(nowSelection);
+  const [playing, setPlaying] = useState(false);
 
   const [reportMode, setReportMode] = useState(false);
   const [modalCoords, setModalCoords] = useState<{ lat: number; lng: number } | null>(null);
@@ -35,17 +42,32 @@ export default function App() {
   useEffect(() => {
     loadRiskData().then((d) => {
       setRealIncidents(d.incidents);
-      setHeatPoints(d.heatPoints);
+      setRawHeatPoints(d.heatPoints);
       setZones(d.zones);
+      setTemporal(d.temporal);
       setModel(d.model);
     });
   }, []);
+
+  // Animate the hour while playing.
+  useEffect(() => {
+    if (!playing) return;
+    const t = setInterval(() => setTime((s) => ({ ...s, hour: (s.hour + 1) % 24 })), 750);
+    return () => clearInterval(t);
+  }, [playing]);
+
+  // Time-weighted heatmap points (shift by hour-of-day profile).
+  const heatPoints = useMemo(
+    () => weightedHeatPoints(rawHeatPoints, temporal, time),
+    [rawHeatPoints, temporal, time],
+  );
 
   // Scan-line re-mount key — increments each time the heatmap engages
   const [scanKey, setScanKey] = useState(0);
   const prevHeat = useRef(false);
   useEffect(() => {
     if (showHeatmap && !prevHeat.current) setScanKey((k) => k + 1);
+    if (!showHeatmap) setPlaying(false);
     prevHeat.current = showHeatmap;
   }, [showHeatmap]);
 
@@ -89,6 +111,10 @@ export default function App() {
       incidents,
       safeZones: SEED_SAFE_ZONES,
       routes: SEED_ROUTES,
+      zones,
+      model,
+      temporal,
+      time,
     });
     setActiveRouteId(null);
     setHighlightZoneId(null);
@@ -109,6 +135,11 @@ export default function App() {
   const handleSelectRoute = (id: 'safe' | 'direct') =>
     setTripPlan((p) => (p ? { ...p, selectedId: id } : p));
   const handleClearTrip = () => setTripPlan(null);
+
+  const handleNow = () => {
+    setPlaying(false);
+    setTime(nowSelection());
+  };
   return (
     <div className="relative h-full w-full overflow-hidden bg-ink">
       <MapView
@@ -239,6 +270,19 @@ export default function App() {
         onClear={handleClearTrip}
       />
 
+      {/* ---------- Temporal scrubber (heatmap mode) ---------- */}
+      {showHeatmap && temporal && (
+        <TimeScrubber
+          sel={time}
+          playing={playing}
+          temporal={temporal}
+          onHour={(h) => setTime((s) => ({ ...s, hour: h }))}
+          onDayType={(d: DayType) => setTime((s) => ({ ...s, dayType: d }))}
+          onTogglePlay={() => setPlaying((p) => !p)}
+          onNow={handleNow}
+        />
+      )}
+
       {/* ---------- Bottom-left: legend + report ---------- */}
       <div className="absolute bottom-5 left-5 z-20 flex flex-col gap-3">
         <Legend showHeatmap={showHeatmap} model={model} />
@@ -339,6 +383,14 @@ function Legend({ showHeatmap, model }: { showHeatmap: boolean; model: RiskModel
           <span className="text-brand">●</span> APD open data · {model.nIncidents.toLocaleString()} incidents · {model.window}
           <br />
           Poisson + KDE model · bike-theft proxy
+          {model.validation && (
+            <>
+              <br />
+              <span className="text-safe">✓</span> Validated: top-5% hotspots caught{' '}
+              <span className="text-white">{Math.round(model.validation.topHotspotCapture * 100)}%</span>{' '}
+              of held-out thefts ({model.validation.pai}× chance)
+            </>
+          )}
         </div>
       )}
     </div>

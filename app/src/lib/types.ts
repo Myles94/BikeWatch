@@ -20,6 +20,32 @@ export interface HeatPoint {
   lat: number;
   lng: number;
   w: number; // 0..1 KDE risk weight
+  z?: number; // zone index into Temporal.zoneNames (-1 = none)
+}
+
+export interface DayProfile {
+  wd: number[]; // 24 weekday multipliers (mean 1)
+  we: number[]; // 24 weekend multipliers (mean 1)
+}
+
+export interface Temporal {
+  hours: number;
+  dayTypes: string[];
+  global: DayProfile;
+  zoneNames: string[];
+  zones: Record<string, DayProfile>;
+}
+
+export interface Validation {
+  method: string;
+  trainN: number;
+  testN: number;
+  trainEnd: string;
+  hotspotCoverage: number;
+  topHotspotCapture: number;
+  pai: number;
+  captureCurve: Record<string, number>;
+  gridCells: number;
 }
 
 export interface Zone {
@@ -46,6 +72,7 @@ export interface RiskModel {
   nZones: number;
   features: string[];
   coefficients: Record<string, number>;
+  validation?: Validation | null;
 }
 
 export interface SafeZone {

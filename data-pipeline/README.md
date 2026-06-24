@@ -16,10 +16,13 @@ proxy for bike-theft risk. E-scooter thefts are not separately recorded.
    predict per-neighborhood theft odds. Writes the app data files.
 
 ## Outputs (committed) → `app/public/data/`
-- `heat-points.json` — KDE-weighted incidents for the heatmap
+- `heat-points.json` — KDE-weighted incidents (with zone index) for the heatmap
 - `incidents.json` — sampled real theft markers
 - `zones.json` — per-neighborhood stats + model-predicted theft odds
-- `model.json` — model metadata (method, coefficients, provenance)
+- `temporal.json` — per-zone + global weekday/weekend × 24h activity multipliers
+  (drives the time scrubber so the heatmap shifts by hour of day)
+- `model.json` — model metadata (method, coefficients, provenance) + held-out
+  validation (train/test split, top-hotspot capture, PAI lift)
 
 ## Regenerate
 ```sh

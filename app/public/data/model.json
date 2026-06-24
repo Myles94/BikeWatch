@@ -17,5 +17,21 @@
     "night_share": -0.092,
     "weekend_share": 0.0591
   },
-  "kdeBandwidthDeg": 0.004
+  "kdeBandwidthDeg": 0.004,
+  "validation": {
+    "method": "older 70% train / newer 30% test; KDE risk grid over incident footprint; hotspot capture of held-out thefts",
+    "trainN": 1149,
+    "testN": 493,
+    "trainEnd": "2026-05-07",
+    "hotspotCoverage": 0.05,
+    "topHotspotCapture": 0.349,
+    "pai": 6.98,
+    "captureCurve": {
+      "2%": 0.217,
+      "5%": 0.349,
+      "10%": 0.479,
+      "20%": 0.698
+    },
+    "gridCells": 702
+  }
 }

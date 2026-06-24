@@ -176,6 +176,34 @@ body {
   color: var(--text);
 }
 
+/* ---------- Time scrubber range input ---------- */
+.scrub {
+  -webkit-appearance: none;
+  appearance: none;
+  height: 4px;
+  background: linear-gradient(to right, rgba(255, 176, 0, 0.5), rgba(255, 69, 58, 0.6));
+  outline: none;
+  cursor: pointer;
+}
+.scrub::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  height: 16px;
+  width: 6px;
+  background: #ffb000;
+  border: 1px solid #1a1300;
+  box-shadow: 0 0 0 1px rgba(255, 176, 0, 0.4);
+  cursor: pointer;
+}
+.scrub::-moz-range-thumb {
+  height: 16px;
+  width: 6px;
+  border-radius: 0;
+  background: #ffb000;
+  border: 1px solid #1a1300;
+  cursor: pointer;
+}
+
 /* ---------- Trip routing endpoints (sharp tactical pins) ---------- */
 .trip-endpoint {
   width: 24px;
