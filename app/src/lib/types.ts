@@ -122,19 +122,22 @@ export interface TripEndpoint {
 }
 
 export interface RouteOption {
-  id: 'safe' | 'direct';
-  kind: 'safe' | 'direct';
+  id: 'safe' | 'fast';
+  kind: 'safe' | 'fast';
   label: string;
   coordinates: [number, number][]; // [lng, lat]
   distanceKm: number;
   etaMin: number;
   safetyScore: number; // 0..100
-  hotspotsPassed: number;
+  riskExposure: number; // mean model risk integrated along the path
+  highRiskZones: string[]; // High-risk zone names the route passes through
+  explanation: string; // defensible "why" for this route
 }
 
 export interface TripPlan {
   origin: TripEndpoint;
   destination: TripEndpoint;
-  options: RouteOption[]; // [safe, direct]
-  selectedId: 'safe' | 'direct';
+  options: RouteOption[]; // [safe, fast]
+  selectedId: 'safe' | 'fast';
+  riskReductionPct?: number;
 }

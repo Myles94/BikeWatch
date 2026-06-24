@@ -1,6 +1,6 @@
 import { useEffect, useRef } from 'react';
 import maplibregl from 'maplibre-gl';
-import type { HeatPoint, Incident, SafeRoute, SafeZone, TripPlan, Zone } from '../lib/types';
+import type { HeatPoint, Incident, SafeRoute, SafeZone, TripPlan, TripPoint, Zone } from '../lib/types';
 import { CITY } from '../data/incidents';
 import { DARK_STYLE } from '../lib/mapStyle';
 
@@ -9,12 +9,15 @@ interface MapViewProps {
   heatPoints: HeatPoint[];
   zones: Zone[];
   safeZones: SafeZone[];
+  landmarks: TripPoint[];
   activeRoute: SafeRoute | null;
   highlightZoneId: string | null;
   avoidHotspot: { lat: number; lng: number; label: string } | null;
+  flyTarget: { lat: number; lng: number; key: number } | null;
   showHeatmap: boolean;
   trip: TripPlan | null;
   onMapClick: (lng: number, lat: number) => void;
+  onLandmarkClick: (point: TripPoint) => void;
   onReady: () => void;
 }
 
@@ -72,12 +75,15 @@ export default function MapView({
   heatPoints,
   zones,
   safeZones,
+  landmarks,
   activeRoute,
   highlightZoneId,
   avoidHotspot,
+  flyTarget,
   showHeatmap,
   trip,
   onMapClick,
+  onLandmarkClick,
   onReady,
 }: MapViewProps) {
   const containerRef = useRef<HTMLDivElement>(null);
@@ -86,13 +92,16 @@ export default function MapView({
   const zoneMarkers = useRef<maplibregl.Marker[]>([]);
   const analyticsMarkers = useRef<maplibregl.Marker[]>([]);
   const tripMarkers = useRef<maplibregl.Marker[]>([]);
+  const landmarkMarkers = useRef<maplibregl.Marker[]>([]);
   const avoidMarker = useRef<maplibregl.Marker | null>(null);
   const loadedRef = useRef(false);
 
   const onMapClickRef = useRef(onMapClick);
   const onReadyRef = useRef(onReady);
+  const onLandmarkClickRef = useRef(onLandmarkClick);
   onMapClickRef.current = onMapClick;
   onReadyRef.current = onReady;
+  onLandmarkClickRef.current = onLandmarkClick;
 
   // Init map once
   useEffect(() => {
@@ -454,7 +463,7 @@ export default function MapView({
       }
 
       const safe = trip.options.find((o) => o.kind === 'safe');
-      const direct = trip.options.find((o) => o.kind === 'direct');
+      const direct = trip.options.find((o) => o.kind === 'fast');
       safeSrc.setData(lineFC(safe?.coordinates ?? []));
       directSrc.setData(lineFC(direct?.coordinates ?? []));
 
@@ -497,6 +506,39 @@ export default function MapView({
     if (loadedRef.current) apply();
     else map.once('bikewatch:ready', apply);
   }, [trip]);
+
+  // Clickable Atlanta landmarks (wayfinding) — fly + set as route origin
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map) return;
+    const apply = () => {
+      landmarkMarkers.current.forEach((m) => m.remove());
+      landmarkMarkers.current = landmarks.map((p) => {
+        const el = document.createElement('button');
+        el.className = 'landmark-pin';
+        el.innerHTML = `<span class="lm-dot"></span><span class="lm-label">${p.label}</span>`;
+        el.addEventListener('click', (ev) => {
+          ev.stopPropagation();
+          onLandmarkClickRef.current(p);
+        });
+        return new maplibregl.Marker({ element: el, anchor: 'left' })
+          .setLngLat([p.lng, p.lat])
+          .addTo(map);
+      });
+    };
+    if (loadedRef.current) apply();
+    else map.once('bikewatch:ready', apply);
+  }, [landmarks]);
+
+  // Fly to a requested target (landmark click)
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map || !flyTarget) return;
+    const fly = () =>
+      map.flyTo({ center: [flyTarget.lng, flyTarget.lat], zoom: 14.6, pitch: 52, duration: 1400 });
+    if (loadedRef.current) fly();
+    else map.once('bikewatch:ready', fly);
+  }, [flyTarget]);
 
   return <div ref={containerRef} className="h-full w-full" />;
 }

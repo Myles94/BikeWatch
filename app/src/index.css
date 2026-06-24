@@ -176,6 +176,41 @@ body {
   color: var(--text);
 }
 
+/* ---------- Clickable Atlanta landmark pins (wayfinding) ---------- */
+.landmark-pin {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 8px 3px 5px;
+  background: rgba(8, 11, 18, 0.7);
+  border: 1px solid rgba(255, 176, 0, 0.35);
+  cursor: pointer;
+  font: inherit;
+  transition: background 0.18s ease, border-color 0.18s ease, transform 0.18s ease;
+}
+.landmark-pin:hover {
+  background: rgba(255, 176, 0, 0.16);
+  border-color: var(--signal);
+  transform: scale(1.04);
+}
+.landmark-pin .lm-dot {
+  height: 6px;
+  width: 6px;
+  flex: none;
+  border-radius: 999px;
+  background: var(--signal);
+  box-shadow: 0 0 6px rgba(255, 176, 0, 0.8);
+}
+.landmark-pin .lm-label {
+  font-family: 'JetBrains Mono', ui-monospace, monospace;
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: #e8ecf5;
+  white-space: nowrap;
+}
+
 /* ---------- Time scrubber range input ---------- */
 .scrub {
   -webkit-appearance: none;

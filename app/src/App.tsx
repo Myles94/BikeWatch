@@ -32,6 +32,10 @@ export default function App() {
 
   const [tripOpen, setTripOpen] = useState(false);
   const [tripPlan, setTripPlan] = useState<TripPlan | null>(null);
+  const [planning, setPlanning] = useState(false);
+  const [originId, setOriginId] = useState('tp-you');
+  const [destId, setDestId] = useState('tp-dt');
+  const [flyTarget, setFlyTarget] = useState<{ lat: number; lng: number; key: number } | null>(null);
 
   const [activeRouteId, setActiveRouteId] = useState<string | null>(null);
   const [highlightZoneId, setHighlightZoneId] = useState<string | null>(null);
@@ -129,17 +133,29 @@ export default function App() {
     return res;
   };
 
-  const handlePlanTrip = (origin: TripPoint, destination: TripPoint) => {
-    setTripPlan(planTrip(origin, destination, incidents));
+  const handlePlanTrip = async (origin: TripPoint, destination: TripPoint) => {
+    setPlanning(true);
+    try {
+      setTripPlan(await planTrip(origin, destination, zones));
+    } finally {
+      setPlanning(false);
+    }
   };
-  const handleSelectRoute = (id: 'safe' | 'direct') =>
+  const handleSelectRoute = (id: 'safe' | 'fast') =>
     setTripPlan((p) => (p ? { ...p, selectedId: id } : p));
   const handleClearTrip = () => setTripPlan(null);
+
+  const handleLandmarkClick = (p: TripPoint) => {
+    setOriginId(p.id);
+    setFlyTarget({ lat: p.lat, lng: p.lng, key: Date.now() });
+    setTripOpen(true);
+  };
 
   const handleNow = () => {
     setPlaying(false);
     setTime(nowSelection());
   };
+  const landmarks = useMemo(() => TRIP_POINTS.filter((p) => p.id !== 'tp-you'), []);
   return (
     <div className="relative h-full w-full overflow-hidden bg-ink">
       <MapView
@@ -147,12 +163,15 @@ export default function App() {
         heatPoints={heatPoints}
         zones={zones}
         safeZones={SEED_SAFE_ZONES}
+        landmarks={landmarks}
         activeRoute={activeRoute}
         highlightZoneId={highlightZoneId}
         avoidHotspot={avoidHotspot}
+        flyTarget={flyTarget}
         showHeatmap={showHeatmap}
         trip={tripPlan}
         onMapClick={handleMapClick}
+        onLandmarkClick={handleLandmarkClick}
         onReady={() => setMapReady(true)}
       />
 
@@ -264,7 +283,12 @@ export default function App() {
         open={tripOpen}
         onClose={() => setTripOpen(false)}
         points={TRIP_POINTS}
+        originId={originId}
+        destId={destId}
         trip={tripPlan}
+        planning={planning}
+        onOriginId={setOriginId}
+        onDestId={setDestId}
         onPlan={handlePlanTrip}
         onSelect={handleSelectRoute}
         onClear={handleClearTrip}
