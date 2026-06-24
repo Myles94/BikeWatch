@@ -53,7 +53,7 @@ const MONO = "'JetBrains Mono',ui-monospace,monospace";
 
 function tagFor(inc: Incident): { color: string; text: string } {
   if (inc.recovered) return { color: '#21d07a', text: 'RECOVERED' };
-  if (inc.type === 'sighting') return { color: '#38bdf8', text: 'FOUND BIKE' };
+  if (inc.type === 'sighting') return { color: '#38bdf8', text: 'SIGHTED STOLEN BIKE' };
   if (inc.type === 'theft') return { color: '#ff453a', text: 'THEFT' };
   return { color: '#ffb000', text: 'SUSPICIOUS' };
 }
@@ -98,10 +98,10 @@ function popupHtml(inc: Incident) {
            </button>`
       : '';
   const escalateCta =
-    inc.type === 'theft' && !inc.recovered
+    (inc.type === 'theft' || inc.type === 'sighting') && !inc.recovered
       ? `<button onclick="window.__bwEscalate&&window.__bwEscalate('${inc.id}')" style="display:flex;align-items:center;gap:6px;width:100%;justify-content:center;background:rgba(255,69,58,0.12);border:1px solid #ff453a;color:#ff453a;font-family:${MONO};font-weight:700;font-size:10px;letter-spacing:0.1em;text-transform:uppercase;padding:9px;margin-bottom:9px;cursor:pointer">
            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2 3 7v6c0 5 3.8 8.3 9 9 5.2-.7 9-4 9-9V7l-9-5Z"/><path d="M12 8v4"/><path d="M12 16h.01"/></svg>
-           Escalate to APD dispatch
+           Call APD dispatch
          </button>`
       : '';
   return `<div style="width:288px">

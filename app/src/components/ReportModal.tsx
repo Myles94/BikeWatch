@@ -12,13 +12,13 @@ interface ReportModalProps {
 const TYPES: { value: IncidentType; label: string; hint: string; accent: string }[] = [
   { value: 'theft', label: 'Theft', hint: 'A bike was stolen', accent: 'var(--theft)' },
   { value: 'suspicious', label: 'Suspicious', hint: 'Sketchy activity', accent: 'var(--signal)' },
-  { value: 'sighting', label: 'Found bike', hint: 'Spotted / abandoned', accent: 'var(--found)' },
+  { value: 'sighting', label: 'Sighted bike', hint: 'Spotted stolen / ditched', accent: 'var(--found)' },
 ];
 
 const DEFAULT_TITLE: Record<IncidentType, string> = {
   theft: 'Bike theft reported',
   suspicious: 'Suspicious activity',
-  sighting: 'Found bike spotted',
+  sighting: 'Sighted stolen bike',
 };
 
 export default function ReportModal({ open, coords, onClose, onSubmit }: ReportModalProps) {
@@ -127,7 +127,7 @@ export default function ReportModal({ open, coords, onClose, onSubmit }: ReportM
             className="mb-4 border-l-2 px-3 py-2 text-[11px] leading-snug text-slate-300"
             style={{ borderColor: 'var(--found)', background: 'rgba(56,189,248,0.07)' }}
           >
-            See a ditched or abandoned bike? Flag it so a rider whose bike was stolen can find it.
+            Spot a bike you think was stolen or ditched? Flag it so the owner can find it — or call APD dispatch straight from the report.
           </div>
         )}
 
