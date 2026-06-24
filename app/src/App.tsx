@@ -861,7 +861,7 @@ export default function App() {
 
       {/* ---------- Bottom-left: legend + report ---------- */}
       <div className="absolute bottom-5 left-5 z-20 flex flex-col gap-3">
-        <Legend showHeatmap={showHeatmap} model={model} heatStyle={heatStyle} onHeatStyle={setHeatStyle} />
+        <Legend showHeatmap={showHeatmap} model={model} heatStyle={heatStyle} onHeatStyle={setHeatStyle} classicHeat={!!ACCENTS[accentIdx].classicHeat} />
         <button
           onClick={() => setReportMode((v) => !v)}
           className={`animate-bootIn flex w-fit items-center gap-2 px-4 py-2.5 text-[11px] font-bold uppercase tracking-[0.14em] transition ${
@@ -964,11 +964,13 @@ function Legend({
   model,
   heatStyle,
   onHeatStyle,
+  classicHeat,
 }: {
   showHeatmap: boolean;
   model: RiskModel | null;
   heatStyle: HeatStyle;
   onHeatStyle: (s: HeatStyle) => void;
+  classicHeat: boolean;
 }) {
   return (
     <div
@@ -983,7 +985,13 @@ function Legend({
       </div>
       {showHeatmap ? (
         <>
-          <div className="h-2 w-full bg-gradient-to-r from-brand/20 via-brand/60 to-brand" />
+          <div
+            className={`h-2 w-full bg-gradient-to-r ${
+              classicHeat
+                ? 'from-safe via-brand to-danger'
+                : 'from-brand/20 via-brand/60 to-brand'
+            }`}
+          />
           <div className="mono mt-1.5 flex justify-between text-[8.5px] uppercase tracking-[0.12em] text-muted">
             <span>Low</span>
             <span>High</span>

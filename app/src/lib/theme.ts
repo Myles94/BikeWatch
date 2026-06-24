@@ -11,9 +11,21 @@ export interface Accent {
   rgb2: string;
   peakRgb: string; // bright tint for the heatmap peak
   onText: string; // legible text color on a filled accent
+  classicHeat?: boolean; // use the original multi-hue danger heat ramp
 }
 
 export const ACCENTS: Accent[] = [
+  {
+    id: 'classic',
+    name: 'Classic',
+    hex: '#ffb000',
+    hex2: '#d99400',
+    rgb: '255 176 0',
+    rgb2: '217 148 0',
+    peakRgb: '255 214 120',
+    onText: '#1a1300',
+    classicHeat: true,
+  },
   {
     id: 'amber',
     name: 'Amber',

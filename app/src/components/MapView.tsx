@@ -131,7 +131,19 @@ function popupHtml(inc: Incident) {
 // Accent-driven risk heat / hex / glow colors so the heatmap retones live with
 // the chosen theme. Single-hue (accent -> bright peak) keeps it clean.
 const rgbCommas = (rgb: string) => rgb.trim().replace(/\s+/g, ',');
+// Original multi-hue "danger" ramp (teal -> amber -> orange -> red).
+const CLASSIC_HEAT = [
+  'interpolate', ['linear'], ['heatmap-density'],
+  0, 'rgba(6,8,13,0)',
+  0.12, 'rgba(38,95,110,0.30)',
+  0.32, 'rgba(70,150,150,0.5)',
+  0.55, 'rgba(255,176,0,0.8)',
+  0.74, 'rgba(255,128,32,0.9)',
+  0.88, 'rgba(255,69,58,0.95)',
+  1, 'rgba(176,18,38,1)',
+];
 function riskHeatColor(a: Accent) {
+  if (a.classicHeat) return CLASSIC_HEAT;
   const c = rgbCommas(a.rgb);
   const p = rgbCommas(a.peakRgb);
   return [
@@ -363,22 +375,22 @@ export default function MapView({
         maxzoom: 18,
         layout: { visibility: 'none' },
         paint: {
-          'heatmap-weight': ['interpolate', ['linear'], ['get', 'w'], 0, 0.4, 1, 1.7],
-          'heatmap-intensity': ['interpolate', ['linear'], ['zoom'], 10, 2, 13, 3, 16, 4.4],
+          'heatmap-weight': ['interpolate', ['linear'], ['get', 'w'], 0, 0.25, 1, 1.1],
+          'heatmap-intensity': ['interpolate', ['linear'], ['zoom'], 10, 0.9, 13, 1.3, 16, 2.0],
           'heatmap-color': [
             'interpolate',
             ['linear'],
             ['heatmap-density'],
             0, 'rgba(6,8,13,0)',
-            0.1, 'rgba(38,95,110,0.35)',
-            0.28, 'rgba(70,150,150,0.55)',
-            0.45, 'rgba(255,176,0,0.82)',
-            0.65, 'rgba(255,128,32,0.9)',
-            0.82, 'rgba(255,69,58,0.95)',
+            0.12, 'rgba(38,95,110,0.30)',
+            0.32, 'rgba(70,150,150,0.5)',
+            0.55, 'rgba(255,176,0,0.8)',
+            0.74, 'rgba(255,128,32,0.9)',
+            0.88, 'rgba(255,69,58,0.95)',
             1, 'rgba(176,18,38,1)',
           ],
-          'heatmap-radius': ['interpolate', ['linear'], ['zoom'], 10, 44, 13, 95, 16, 150],
-          'heatmap-opacity': ['interpolate', ['linear'], ['zoom'], 14, 0.95, 17, 0.6],
+          'heatmap-radius': ['interpolate', ['linear'], ['zoom'], 10, 10, 13, 20, 16, 34],
+          'heatmap-opacity': ['interpolate', ['linear'], ['zoom'], 14, 0.9, 17, 0.5],
         },
       });
 
@@ -390,8 +402,8 @@ export default function MapView({
         maxzoom: 18,
         layout: { visibility: 'none' },
         paint: {
-          'heatmap-weight': 1.4,
-          'heatmap-intensity': ['interpolate', ['linear'], ['zoom'], 10, 1.6, 16, 3.6],
+          'heatmap-weight': 1.2,
+          'heatmap-intensity': ['interpolate', ['linear'], ['zoom'], 10, 1.2, 16, 2.8],
           'heatmap-color': [
             'interpolate',
             ['linear'],
@@ -402,8 +414,27 @@ export default function MapView({
             0.7, 'rgba(74,222,128,0.8)',
             1, 'rgba(134,239,172,0.92)',
           ],
-          'heatmap-radius': ['interpolate', ['linear'], ['zoom'], 10, 40, 13, 80, 16, 130],
-          'heatmap-opacity': ['interpolate', ['linear'], ['zoom'], 14, 0.85, 17, 0.5],
+          'heatmap-radius': ['interpolate', ['linear'], ['zoom'], 10, 18, 13, 32, 16, 52],
+          'heatmap-opacity': ['interpolate', ['linear'], ['zoom'], 14, 0.8, 17, 0.45],
+        },
+      });
+
+      // Real incident dots: every APD report (lat/lng) as a light circle so the
+      // map reads as densely populated as the headline count, not just markers.
+      map.addSource('incident-dots', {
+        type: 'geojson',
+        data: heatFeatureCollection([]),
+      });
+      map.addLayer({
+        id: 'incident-dots',
+        type: 'circle',
+        source: 'incident-dots',
+        paint: {
+          'circle-radius': ['interpolate', ['linear'], ['zoom'], 10, 1.4, 13, 2.4, 16, 3.8],
+          'circle-color': '#ff5a45',
+          'circle-opacity': ['interpolate', ['linear'], ['zoom'], 10, 0.45, 14, 0.62],
+          'circle-stroke-width': 0.5,
+          'circle-stroke-color': 'rgba(4,6,12,0.55)',
         },
       });
 
@@ -484,8 +515,12 @@ export default function MapView({
     const map = mapRef.current;
     if (!map) return;
     const apply = () => {
+      const data = heatFeatureCollection(heatPoints);
       const src = map.getSource('incidents') as maplibregl.GeoJSONSource | undefined;
-      if (src) src.setData(heatFeatureCollection(heatPoints));
+      if (src) src.setData(data);
+      // The dot field shares the same real points (one dot per incident).
+      const dots = map.getSource('incident-dots') as maplibregl.GeoJSONSource | undefined;
+      if (dots) dots.setData(data);
     };
     if (loadedRef.current) apply();
     else map.once('bikewatch:ready', apply);
@@ -542,6 +577,13 @@ export default function MapView({
       setVis('risk-fill', hex);
       setVis('risk-glow', hex);
       setVis('risk-line', hex);
+      // Fade the dot field under the blur heatmap so the glow reads cleanly,
+      // keep it crisp otherwise.
+      if (map.getLayer('incident-dots')) {
+        map.setPaintProperty('incident-dots', 'circle-opacity', [
+          'interpolate', ['linear'], ['zoom'], 10, blur ? 0.18 : 0.45, 14, blur ? 0.3 : 0.62,
+        ]);
+      }
 
       // Subtle "danger" pulse on the hex fill so high-risk cells breathe.
       stopPulse();
