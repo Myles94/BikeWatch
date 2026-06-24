@@ -1,6 +1,7 @@
 import { useEffect, useRef } from 'react';
 import maplibregl from 'maplibre-gl';
 import type { HeatPoint, Incident, SafeRoute, SafeZone, TripPlan, TripPoint, Zone } from '../lib/types';
+import type { HeatStyle, RiskFC } from '../lib/heatStyles';
 import { CITY } from '../data/incidents';
 import { DARK_STYLE } from '../lib/mapStyle';
 
@@ -15,6 +16,8 @@ interface MapViewProps {
   avoidHotspot: { lat: number; lng: number; label: string } | null;
   flyTarget: { lat: number; lng: number; key: number } | null;
   showHeatmap: boolean;
+  heatStyle: HeatStyle;
+  riskPolygons: RiskFC;
   trip: TripPlan | null;
   tripVisible: boolean;
   selectedId: 'safe' | 'fast';
@@ -83,6 +86,8 @@ export default function MapView({
   avoidHotspot,
   flyTarget,
   showHeatmap,
+  heatStyle,
+  riskPolygons,
   trip,
   tripVisible,
   selectedId,
@@ -137,6 +142,42 @@ export default function MapView({
       map.addSource('safezones', {
         type: 'geojson',
         data: { type: 'FeatureCollection', features: [] },
+      });
+      map.addSource('riskpoly', {
+        type: 'geojson',
+        data: { type: 'FeatureCollection', features: [] },
+      });
+
+      // Grid/hex risk polygons (shaded fill + outline) — alternate heat styles
+      map.addLayer({
+        id: 'risk-fill',
+        type: 'fill',
+        source: 'riskpoly',
+        layout: { visibility: 'none' },
+        paint: {
+          'fill-color': [
+            'interpolate', ['linear'], ['get', 'risk'],
+            0.05, 'rgba(255,176,0,0.10)',
+            0.45, 'rgba(255,140,30,0.34)',
+            0.7, 'rgba(255,69,58,0.5)',
+            1, 'rgba(214,30,40,0.66)',
+          ],
+        },
+      });
+      map.addLayer({
+        id: 'risk-line',
+        type: 'line',
+        source: 'riskpoly',
+        layout: { visibility: 'none' },
+        paint: {
+          'line-color': [
+            'interpolate', ['linear'], ['get', 'risk'],
+            0.05, 'rgba(255,176,0,0.5)',
+            0.6, 'rgba(255,90,40,0.85)',
+            1, 'rgba(255,69,58,1)',
+          ],
+          'line-width': 1,
+        },
       });
 
       // Advanced shaded heatmap (hidden until toggled)
@@ -305,9 +346,32 @@ export default function MapView({
     const map = mapRef.current;
     if (!map) return;
     const apply = () => {
-      const vis = showHeatmap ? 'visible' : 'none';
-      if (map.getLayer('incident-heat')) map.setLayoutProperty('incident-heat', 'visibility', vis);
-      if (map.getLayer('safezone-heat')) map.setLayoutProperty('safezone-heat', 'visibility', vis);
+      const on = showHeatmap;
+      const blur = on && heatStyle === 'blur';
+      const poly = on && heatStyle !== 'blur';
+      const lines = heatStyle === 'lines';
+      const setVis = (id: string, v: boolean) => {
+        if (map.getLayer(id)) map.setLayoutProperty(id, 'visibility', v ? 'visible' : 'none');
+      };
+      setVis('incident-heat', blur);
+      setVis('safezone-heat', blur);
+      setVis('risk-fill', poly && !lines);
+      setVis('risk-line', poly);
+      if (map.getLayer('risk-line')) {
+        // 'lines' style: minimalist outlines whose weight scales with risk
+        map.setPaintProperty(
+          'risk-line',
+          'line-width',
+          lines
+            ? ['interpolate', ['linear'], ['get', 'risk'], 0.05, 0.5, 1, 3]
+            : 0.85,
+        );
+        map.setPaintProperty(
+          'risk-line',
+          'line-opacity',
+          lines ? ['interpolate', ['linear'], ['get', 'risk'], 0.05, 0.25, 1, 0.95] : 0.55,
+        );
+      }
 
       analyticsMarkers.current.forEach((m) => m.remove());
       analyticsMarkers.current = [];
@@ -335,7 +399,19 @@ export default function MapView({
     };
     if (loadedRef.current) apply();
     else map.once('bikewatch:ready', apply);
-  }, [showHeatmap, zones]);
+  }, [showHeatmap, heatStyle, zones]);
+
+  // Risk polygon data (grid/hex styles)
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map) return;
+    const apply = () => {
+      const src = map.getSource('riskpoly') as maplibregl.GeoJSONSource | undefined;
+      if (src) src.setData(riskPolygons);
+    };
+    if (loadedRef.current) apply();
+    else map.once('bikewatch:ready', apply);
+  }, [riskPolygons]);
 
   // Safe zone markers + safe-zone heatmap data
   useEffect(() => {

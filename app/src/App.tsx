@@ -10,6 +10,7 @@ import { runCopilot } from './lib/copilot';
 import { planTrip } from './lib/routing';
 import { loadRiskData } from './lib/loadData';
 import { type DayType, nowSelection, weightedHeatPoints } from './lib/temporal';
+import { type HeatStyle, HEAT_STYLES, buildRiskPolygons } from './lib/heatStyles';
 
 export default function App() {
   const [realIncidents, setRealIncidents] = useState<Incident[]>([]);
@@ -20,6 +21,7 @@ export default function App() {
   const [model, setModel] = useState<RiskModel | null>(null);
 
   const [showHeatmap, setShowHeatmap] = useState(false);
+  const [heatStyle, setHeatStyle] = useState<HeatStyle>('blur');
   const [copilotOpen, setCopilotOpen] = useState(false);
 
   // Temporal scrubber state
@@ -65,6 +67,12 @@ export default function App() {
   const heatPoints = useMemo(
     () => weightedHeatPoints(rawHeatPoints, temporal, time),
     [rawHeatPoints, temporal, time],
+  );
+
+  // Grid/hex risk polygons for the non-blur heatmap styles.
+  const riskPolygons = useMemo(
+    () => buildRiskPolygons(heatPoints, heatStyle),
+    [heatPoints, heatStyle],
   );
 
   // Scan-line re-mount key — increments each time the heatmap engages
@@ -170,6 +178,8 @@ export default function App() {
         avoidHotspot={avoidHotspot}
         flyTarget={flyTarget}
         showHeatmap={showHeatmap}
+        heatStyle={heatStyle}
+        riskPolygons={riskPolygons}
         trip={tripPlan}
         tripVisible={tripOpen}
         selectedId={selectedRouteId}
@@ -313,7 +323,7 @@ export default function App() {
 
       {/* ---------- Bottom-left: legend + report ---------- */}
       <div className="absolute bottom-5 left-5 z-20 flex flex-col gap-3">
-        <Legend showHeatmap={showHeatmap} model={model} />
+        <Legend showHeatmap={showHeatmap} model={model} heatStyle={heatStyle} onHeatStyle={setHeatStyle} />
         <button
           onClick={() => setReportMode((v) => !v)}
           className={`animate-bootIn flex w-fit items-center gap-2 px-4 py-2.5 text-[11px] font-bold uppercase tracking-[0.14em] transition ${
@@ -376,7 +386,17 @@ function Clock() {
   );
 }
 
-function Legend({ showHeatmap, model }: { showHeatmap: boolean; model: RiskModel | null }) {
+function Legend({
+  showHeatmap,
+  model,
+  heatStyle,
+  onHeatStyle,
+}: {
+  showHeatmap: boolean;
+  model: RiskModel | null;
+  heatStyle: HeatStyle;
+  onHeatStyle: (s: HeatStyle) => void;
+}) {
   return (
     <div
       className="tac-panel animate-bootIn w-[210px] px-3.5 py-3"
@@ -396,7 +416,20 @@ function Legend({ showHeatmap, model }: { showHeatmap: boolean; model: RiskModel
             <span>High</span>
           </div>
           <div className="mt-3 border-t border-edge pt-2.5">
-            <Row color="bg-safe" label="Safe-zone density" />
+            <span className="tac-label">Style</span>
+            <div className="mt-1.5 grid grid-cols-4 border border-edge">
+              {HEAT_STYLES.map((s) => (
+                <button
+                  key={s.id}
+                  onClick={() => onHeatStyle(s.id)}
+                  className={`mono py-1 text-[8.5px] font-bold uppercase tracking-[0.08em] transition ${
+                    heatStyle === s.id ? 'bg-brand text-[#1a1300]' : 'text-slate-300 hover:bg-white/5'
+                  }`}
+                >
+                  {s.label}
+                </button>
+              ))}
+            </div>
           </div>
         </>
       ) : (
