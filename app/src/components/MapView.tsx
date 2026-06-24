@@ -524,12 +524,12 @@ export default function MapView({
       landmarkMarkers.current = landmarks.map((p) => {
         const el = document.createElement('button');
         el.className = 'landmark-pin';
-        el.innerHTML = `<span class="lm-dot"></span><span class="lm-label">${p.label}</span>`;
+        el.innerHTML = `<span class="lm-body"><span class="lm-dot"></span><span class="lm-label">${p.label}</span></span><span class="lm-tail"></span>`;
         el.addEventListener('click', (ev) => {
           ev.stopPropagation();
           onLandmarkClickRef.current(p);
         });
-        return new maplibregl.Marker({ element: el, anchor: 'left' })
+        return new maplibregl.Marker({ element: el, anchor: 'bottom' })
           .setLngLat([p.lng, p.lat])
           .addTo(map);
       });

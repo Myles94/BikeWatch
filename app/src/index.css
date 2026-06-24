@@ -179,36 +179,56 @@ body {
 /* ---------- Clickable Atlanta landmark pins (wayfinding) ---------- */
 .landmark-pin {
   display: flex;
+  flex-direction: column;
   align-items: center;
-  gap: 6px;
-  padding: 3px 8px 3px 5px;
-  background: rgba(8, 11, 18, 0.7);
-  border: 1px solid rgba(255, 176, 0, 0.35);
   cursor: pointer;
   font: inherit;
-  transition: background 0.18s ease, border-color 0.18s ease, transform 0.18s ease;
+  transform-origin: bottom center;
+  transition: transform 0.16s ease;
 }
 .landmark-pin:hover {
-  background: rgba(255, 176, 0, 0.16);
+  transform: scale(1.07);
+  z-index: 5;
+}
+.landmark-pin .lm-body {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 5px 11px;
+  background: rgba(8, 11, 18, 0.82);
+  border: 1px solid rgba(255, 176, 0, 0.45);
+}
+.landmark-pin:hover .lm-body {
+  background: rgba(255, 176, 0, 0.18);
   border-color: var(--signal);
-  transform: scale(1.04);
 }
 .landmark-pin .lm-dot {
-  height: 6px;
-  width: 6px;
+  height: 7px;
+  width: 7px;
   flex: none;
   border-radius: 999px;
   background: var(--signal);
-  box-shadow: 0 0 6px rgba(255, 176, 0, 0.8);
+  box-shadow: 0 0 7px rgba(255, 176, 0, 0.85);
 }
 .landmark-pin .lm-label {
   font-family: 'JetBrains Mono', ui-monospace, monospace;
-  font-size: 9px;
+  font-size: 11px;
   font-weight: 700;
-  letter-spacing: 0.12em;
+  letter-spacing: 0.1em;
   text-transform: uppercase;
-  color: #e8ecf5;
+  color: #ffffff;
   white-space: nowrap;
+}
+.landmark-pin .lm-tail {
+  width: 0;
+  height: 0;
+  margin-top: -1px;
+  border-left: 5px solid transparent;
+  border-right: 5px solid transparent;
+  border-top: 7px solid rgba(255, 176, 0, 0.7);
+}
+.landmark-pin:hover .lm-tail {
+  border-top-color: var(--signal);
 }
 
 /* ---------- Time scrubber range input ---------- */
