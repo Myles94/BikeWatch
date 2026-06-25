@@ -12,7 +12,7 @@ interface CopilotDockProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onAsk: (question: string) => CopilotResult;
-  autoAsk?: { question: string; key: number } | null;
+  autoAsk?: { questions: string[]; key: number } | null;
 }
 
 function CoreIcon({ className = '' }: { className?: string }) {
@@ -53,14 +53,19 @@ export default function CopilotDock({ open, onOpenChange, onAsk, autoAsk }: Copi
     }, 600);
   };
 
-  // Auto-ask a question (demo tour drives this) with a brief "typing" feel.
+  // Auto-ask one or more questions (demo tour drives this) with a brief
+  // "typing" feel, spaced so each answer and its map move are visible.
   const lastAutoRef = useRef<number | null>(null);
   useEffect(() => {
     if (!autoAsk || autoAsk.key === lastAutoRef.current) return;
     lastAutoRef.current = autoAsk.key;
-    setInput(autoAsk.question);
-    const t = setTimeout(() => submit(autoAsk.question), 700);
-    return () => clearTimeout(t);
+    const timers: ReturnType<typeof setTimeout>[] = [];
+    const GAP = 4800;
+    autoAsk.questions.forEach((q, idx) => {
+      timers.push(setTimeout(() => setInput(q), idx * GAP + 300));
+      timers.push(setTimeout(() => submit(q), idx * GAP + 700));
+    });
+    return () => timers.forEach(clearTimeout);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [autoAsk]);
 

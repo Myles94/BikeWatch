@@ -61,7 +61,7 @@ export default function ReportModal({ open, coords, onClose, onSubmit, autoSubmi
         reporter: autoSubmit.handle,
         watchers: 1,
       });
-    }, 1600);
+    }, 3600);
     return () => clearTimeout(t);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, autoSubmit]);

@@ -32,11 +32,12 @@ interface TourStep {
   popupId?: string;
   escalateId?: string;
   matchId?: string;
+  matchTheftId?: string;
   trip?: boolean;
   planRoute?: { originId: string; destId: string };
   clearDispatch?: boolean;
   copilot?: boolean;
-  autoAsk?: string;
+  autoAsk?: string[];
   tips?: boolean;
   network?: boolean;
   autoReport?: { lat: number; lng: number; type: IncidentType; title: string; description: string; handle: string };
@@ -93,10 +94,9 @@ const TOUR_STEPS: TourStep[] = [
   },
   {
     title: 'Report in seconds',
-    say: 'Spot something? Anyone can drop a report in seconds, and it instantly sharpens the live risk map.',
+    say: 'Spot something? Anyone can drop a report in seconds, and it lands on the live map instantly.',
     camera: { lng: -84.385, lat: 33.78, zoom: 14.0, pitch: 50, bearing: -6, duration: 1700 },
-    heatmap: true,
-    heatStyle: 'blur',
+    heatmap: false,
     autoReport: {
       lat: 33.7802,
       lng: -84.3851,
@@ -115,29 +115,32 @@ const TOUR_STEPS: TourStep[] = [
   // --- The action loop: back to that Cannondale ---
   {
     title: 'One tap to APD dispatch',
-    say: 'Back to that Cannondale. One tap escalates it to APD dispatch: submitted, acknowledged, officer responding.',
+    say: 'Back to that Cannondale. One tap escalates it to APD dispatch: submitted, acknowledged, officer responding, resolved.',
     camera: { lng: PCM.lng, lat: PCM.lat - 0.004, zoom: 14.6, pitch: 48, bearing: 0, duration: 1700 },
+    popupId: 'sight-demo',
     escalateId: 'sight-demo',
   },
   {
     title: 'Reunited with its owner',
-    say: 'Because another rider reported it stolen, BikeWatch links them, closes the case, and gets the bike home.',
+    say: 'Because another rider reported it stolen, BikeWatch links them, closes the case, and the report turns green: bike recovered.',
     camera: { lng: PCM.lng, lat: PCM.lat - 0.003, zoom: 14.9, pitch: 50, bearing: 6 },
     matchId: 'sight-demo',
+    matchTheftId: 'feat-o4w',
+    popupId: 'feat-o4w',
+    clearDispatch: true,
   },
   {
     title: 'Safe vs fast routing',
     say: "It's prevention too: a safe route home that actively steers around the worst theft zones.",
     trip: true,
-    planRoute: { originId: 'tp-mid', destId: 'tp-dt' },
-    clearDispatch: true,
+    planRoute: { originId: 'tp-l5p', destId: 'tp-grant' },
   },
   {
     title: 'Ask BikeWatch',
-    say: "Ask 'is my area safe right now?' and it answers from real data, then lights up the live risk grid.",
+    say: "Ask 'is my area safe right now?' and 'riskiest areas right now?' and it answers from real data, flying the map to each hotspot.",
     camera: { ...ATL, zoom: 13.0, pitch: 50, bearing: -8 },
     copilot: true,
-    autoAsk: 'Is my area safe right now?',
+    autoAsk: ['Is my area safe right now?', 'Riskiest areas right now?'],
     heatmap: true,
     heatStyle: 'hex',
   },
@@ -204,7 +207,7 @@ export default function App() {
     { lng: number; lat: number; zoom: number; pitch: number; bearing: number; duration?: number; key: number } | null
   >(null);
   const [openPopup, setOpenPopup] = useState<{ id: string; key: number } | null>(null);
-  const [autoAsk, setAutoAsk] = useState<{ question: string; key: number } | null>(null);
+  const [autoAsk, setAutoAsk] = useState<{ questions: string[]; key: number } | null>(null);
   const [outro, setOutro] = useState(false);
   const [networkMode, setNetworkMode] = useState(false);
   const [selectedCity, setSelectedCity] = useState('atl');
@@ -344,19 +347,23 @@ export default function App() {
   };
 
   // Community match: a found-bike sighting -> the nearest still-open theft.
-  const handleMatchSighting = (sightingId: string) => {
+  // The demo can force a specific theft via preferTheftId so the reunited card
+  // is deterministic.
+  const handleMatchSighting = (sightingId: string, preferTheftId?: string) => {
     const sighting = incidents.find((i) => i.id === sightingId);
     if (!sighting || recoveries.some((r) => r.sightingId === sightingId)) return;
     const open = incidents.filter(
       (i) => i.type === 'theft' && !i.recovered && !recoveries.some((r) => r.theftId === i.id),
     );
-    let best: Incident | null = null;
-    let bestKm = Infinity;
-    for (const t of open) {
-      const d = haversineKm(sighting.lat, sighting.lng, t.lat, t.lng);
-      if (d < bestKm) {
-        bestKm = d;
-        best = t;
+    let best: Incident | null = preferTheftId ? open.find((i) => i.id === preferTheftId) ?? null : null;
+    let bestKm = best ? haversineKm(sighting.lat, sighting.lng, best.lat, best.lng) : Infinity;
+    if (!best) {
+      for (const t of open) {
+        const d = haversineKm(sighting.lat, sighting.lng, t.lat, t.lng);
+        if (d < bestKm) {
+          bestKm = d;
+          best = t;
+        }
       }
     }
     if (!best || bestKm > 3) {
@@ -435,12 +442,13 @@ export default function App() {
     setCopilotOpen(!!s.copilot);
     setTipsOpen(!!s.tips);
     setReportMode(false);
-    setFeedOpen(true);
+    // Community feed is featured for the first five steps, then auto-closes.
+    setFeedOpen(i <= 4);
     setOpenPopup({ id: s.popupId ?? '', key: Date.now() });
     if (s.camera) setCinematic({ ...s.camera, key: Date.now() });
     if (s.clearDispatch) setDispatches([]);
     if (s.escalateId) handleEscalate(s.escalateId);
-    if (s.matchId) handleMatchSighting(s.matchId);
+    if (s.matchId) handleMatchSighting(s.matchId, s.matchTheftId);
     if (s.planRoute) {
       const origin = TRIP_POINTS.find((p) => p.id === s.planRoute!.originId);
       const destination = TRIP_POINTS.find((p) => p.id === s.planRoute!.destId);
@@ -450,7 +458,7 @@ export default function App() {
         handlePlanTrip(origin, destination);
       }
     }
-    setAutoAsk(s.autoAsk ? { question: s.autoAsk, key: Date.now() } : null);
+    setAutoAsk(s.autoAsk ? { questions: s.autoAsk, key: Date.now() } : null);
 
     // Multi-city network mode: open on the bird's-eye national view; the
     // presenter taps a city pin (or the panel) to fly into a hub.
