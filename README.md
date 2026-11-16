@@ -2,6 +2,10 @@
 
 **Live bike-theft intelligence for cities.** BikeWatch turns real police data and
 community reports into a live risk map, a predictive hotspot model, safer
+
+https://github.com/user-attachments/assets/c6203f33-8d3f-48b4-8032-b66f384b8587
+
+
 routing, and an AI safety assistant, so riders can avoid theft before it happens.
 
 Demo city: **Atlanta, GA** (the platform is city-agnostic and ships with a
